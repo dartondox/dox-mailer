@@ -6,12 +6,12 @@ import 'mail_config.dart';
 /// Sets up the mailers in every isolate. Extend it in `lib/` so the
 /// generated container finds it:
 /// ```
-/// class AppMailService extends MailService {
-///   AppMailService() : super(mailConfig);
+/// class AppMailProvider extends MailProvider {
+///   AppMailProvider() : super(mailConfig);
 /// }
 /// ```
-class MailService implements DoxService, DoxShutdown {
-  MailService(this.config);
+class MailProvider extends DoxProvider {
+  MailProvider(this.config);
 
   final MailConfig config;
 

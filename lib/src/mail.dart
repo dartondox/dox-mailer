@@ -9,7 +9,7 @@ import 'transports/array_transport.dart';
 /// await Mail.send(Message(to: [Address('ann@example.com')], ...));
 /// await Mail.mailer('ses').send(message);
 /// ```
-/// `MailService` calls [configure] in every isolate.
+/// `MailProvider` calls [configure] in every isolate.
 class Mail {
   Mail._();
 
@@ -27,7 +27,7 @@ class Mail {
     MailConfig? value = _config;
     if (value == null) {
       throw StateError(
-        'Mail is not set up. Add a MailService to your app, '
+        'Mail is not set up. Add a MailProvider to your app, '
         'or call Mail.configure() first',
       );
     }

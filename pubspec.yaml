@@ -9,7 +9,7 @@ environment:
 
 dependencies:
   crypto: ^3.0.7
-  dox_core: ^3.0.0-alpha.14
+  dox_core: ^3.0.0-alpha.15
   http: ^1.6.0
 
 dev_dependencies:

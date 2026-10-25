@@ -8,7 +8,7 @@ export 'src/aws/sigv4.dart';
 export 'src/mail.dart';
 export 'src/mail_config.dart';
 export 'src/mail_exception.dart';
-export 'src/mail_service.dart';
+export 'src/mail_provider.dart';
 export 'src/mailer.dart';
 export 'src/message.dart';
 export 'src/mime/mime_builder.dart';
