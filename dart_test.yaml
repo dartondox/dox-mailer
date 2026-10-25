@@ -1,0 +1,4 @@
+tags:
+  # tests that need real servers, see test/integration/
+  integration:
+    timeout: 2x

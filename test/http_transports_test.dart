@@ -140,6 +140,51 @@ void main() {
     });
   });
 
+  test('SES v1 and v2 use a custom endpoint', () async {
+    // eg. a VPC endpoint, or LocalStack in tests
+    Uri endpoint = Uri.parse('http://localhost:4566/');
+    _Recorder r = _Recorder(200, '{"MessageId":"ses-3"}');
+    SesTransport v1 = SesTransport(
+      key: 'AKIDEXAMPLE',
+      secret: 'test-secret',
+      endpoint: endpoint,
+      client: r.client,
+      clock: () => _time,
+    );
+    SesV2Transport v2 = SesV2Transport(
+      key: 'AKIDEXAMPLE',
+      secret: 'test-secret',
+      endpoint: endpoint,
+      client: r.client,
+      clock: () => _time,
+    );
+    expect(v1.endpoint, endpoint);
+
+    await v1.send(_message());
+    expect(r.last.url.toString(), 'http://localhost:4566/');
+
+    await v2.send(_message());
+    expect(
+      r.last.url.toString(),
+      'http://localhost:4566/v2/email/outbound-emails',
+    );
+    // the signature is for the custom host and port
+    Map<String, String> expected =
+        AwsSigV4(
+          accessKeyId: 'AKIDEXAMPLE',
+          secretAccessKey: 'test-secret',
+          region: 'us-east-1',
+          service: 'ses',
+        ).sign(
+          method: 'POST',
+          uri: r.last.url,
+          headers: <String, String>{'content-type': 'application/json'},
+          body: r.last.bodyBytes,
+          time: _time,
+        );
+    expect(r.last.headers['authorization'], expected['authorization']);
+  });
+
   test('SES v2 posts SendEmail with raw content', () async {
     _Recorder r = _Recorder(200, '{"MessageId":"ses-2"}');
     SesV2Transport ses = SesV2Transport(
