@@ -1,6 +1,6 @@
 name: dox_mailer
 description: "Send email from the Dox framework: SMTP, Amazon SES, Azure, Resend, Mailgun, Postmark and sendmail."
-version: 3.0.0-alpha.1
+version: 3.0.0-alpha.2
 repository: https://github.com/dartondox/dox-mailer
 homepage: https://dartondox.dev
 
