@@ -1,0 +1,23 @@
+name: dox_mailer
+description: "Send email from the Dox framework: SMTP, Amazon SES, Azure, Resend, Mailgun, Postmark and sendmail."
+version: 3.0.0-alpha.1
+repository: https://github.com/dartondox/dox-mailer
+homepage: https://dartondox.dev
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  crypto: ^3.0.7
+  dox_core: ^3.0.0-alpha.14
+  http: ^1.6.0
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.33.0
+
+# not real secrets: the TLS key of the fake SMTP server, and the
+# example AWS key of the AWS docs for the signature test
+false_secrets:
+  - /test/fixtures/key.pem
+  - /test/sigv4_test.dart
