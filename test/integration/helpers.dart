@@ -30,7 +30,8 @@ String newId() {
 /// the bytes of the attachment: every byte value, so a bad encoding shows
 final List<int> fileBytes = List<int>.generate(256, (int i) => i);
 
-const String fileName = 'report.bin';
+// Postmark does not take every file type (eg. not .bin), so it is a .pdf
+const String fileName = 'report.pdf';
 
 /// A message with every part the tests check. The subject has the [id]
 /// and non-ASCII text, to test RFC 2047.
@@ -43,9 +44,7 @@ Message sampleMessage(String id) {
     subject: 'Test $id: héllo wörld ✓ 日本',
     text: 'Hello Ann.\nThis is the text part ✓',
     html: '<p>Hello <b>Ann</b>. This is the html part ✓</p>',
-    attachments: <Attachment>[
-      Attachment(fileBytes, fileName, contentType: 'application/octet-stream'),
-    ],
+    attachments: <Attachment>[Attachment(fileBytes, fileName)],
   );
 }
 
