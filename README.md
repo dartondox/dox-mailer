@@ -235,7 +235,7 @@ There are two classes. Both send the same MIME message, with attachments and inl
 | `sessionToken` | none | for temporary keys, eg. from a role |
 | `region` | `us-east-1` | the AWS region of SES |
 | `configurationSet` | none | the SES configuration set, to track events |
-| `endpoint` | `https://email.<region>.amazonaws.com/` | another API address |
+| `endpoint` | `https://email.<region>.amazonaws.com/` | another API address, eg. a VPC endpoint or LocalStack |
 
 The requests are signed with AWS Signature Version 4. No AWS SDK is needed.
 
@@ -391,6 +391,25 @@ void main() {
 `Mail.fake()` works with or without a config. Call it after the app has started, because `MailService` sets up the config again at start.
 
 `mail.clear()` forgets the sent emails.
+
+## Integration tests
+
+These tests send real email to free test servers and read it back. They are in `test/integration/` and have the `integration` tag. With no servers, `dart test` skips them.
+
+You need Docker. This starts the servers from `docker-compose.yaml` and runs the tests:
+
+```bash
+tool/integration_test.sh
+```
+
+| Server | Tests |
+| --- | --- |
+| Mailpit | SMTP: no TLS, STARTTLS, TLS, AUTH PLAIN and LOGIN, keepAlive. sendmail `-t -i` and `-bs` |
+| LocalStack | SES v1 |
+| moto | SES v1 and v2 |
+| api.postmarkapp.com | Postmark, with the test token `POSTMARK_API_TEST` |
+
+The servers keep running. Stop them with `docker compose down`.
 
 ## Your own transport
 

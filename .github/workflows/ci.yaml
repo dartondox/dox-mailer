@@ -18,3 +18,18 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: dart test
       - run: dart pub publish --dry-run
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      # starts Mailpit, LocalStack and moto (docker-compose.yaml), waits
+      # until they are healthy, and runs dart test -t integration
+      - run: tool/integration_test.sh
+      - name: Server logs
+        if: failure()
+        run: docker compose logs

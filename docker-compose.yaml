@@ -1,0 +1,56 @@
+# Test servers for the integration tests. Run them with:
+#   tool/integration_test.sh
+# See the "Integration tests" part of the README.
+services:
+  # SMTP, no TLS, no login. Also the server of the sendmail tests.
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    ports: ['1025:1025', '8025:8025']
+    healthcheck: &mailpit-health
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 2s
+      retries: 30
+
+  # SMTP with STARTTLS (required) and login user:secret. Mailpit makes
+  # a self-signed certificate for "localhost".
+  mailpit-starttls:
+    image: axllent/mailpit:v1.32.0
+    ports: ['1026:1025', '8026:8025']
+    environment:
+      MP_SMTP_TLS_CERT: sans:localhost
+      MP_SMTP_TLS_KEY: sans:localhost
+      MP_SMTP_REQUIRE_STARTTLS: 'true'
+      MP_SMTP_AUTH: user:secret
+    healthcheck: *mailpit-health
+
+  # SMTP with TLS from the start (like port 465) and login user:secret
+  mailpit-tls:
+    image: axllent/mailpit:v1.32.0
+    ports: ['1027:1025', '8027:8025']
+    environment:
+      MP_SMTP_TLS_CERT: sans:localhost
+      MP_SMTP_TLS_KEY: sans:localhost
+      MP_SMTP_REQUIRE_TLS: 'true'
+      MP_SMTP_AUTH: user:secret
+    healthcheck: *mailpit-health
+
+  # SES v1. 4.14.0 is the last free LocalStack image: newer images need
+  # an auth token.
+  localstack:
+    image: localstack/localstack:4.14.0
+    ports: ['4566:4566']
+    environment:
+      SERVICES: ses
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:4566/_localstack/health']
+      interval: 2s
+      retries: 60
+
+  # SES v1 and v2. The free LocalStack has no SES v2.
+  moto:
+    image: motoserver/moto:5.2.4
+    ports: ['5050:5000']
+    healthcheck:
+      test: ['CMD', 'curl', '-sf', 'http://localhost:5000/moto-api/']
+      interval: 2s
+      retries: 30
