@@ -61,7 +61,7 @@ MAIL_PASSWORD=secret
 
 ### 2. Provider
 
-The service sets up the mailers in every isolate. Put it in `lib/` so the generated container finds it.
+The provider sets up the mailers in every isolate. Put it in `lib/` so the generated container finds it.
 
 ```dart title="lib/providers/mail_provider.dart"
 import 'package:dox_mailer/dox_mailer.dart';
@@ -75,7 +75,7 @@ class AppMailProvider extends MailProvider {
 }
 ```
 
-When the server stops, the service closes open SMTP connections and HTTP clients.
+When the server stops, the provider closes open SMTP connections and HTTP clients.
 
 ## Send an email
 

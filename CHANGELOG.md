@@ -1,3 +1,7 @@
+## Unreleased
+
+- Docs: README and `docs/mail.md` now say "provider", not "service", for `MailProvider`.
+
 ## 3.0.0-alpha.2
 
 - `MailProvider` (was a DoxService): extend it in your app, `shutdown()` is optional.
