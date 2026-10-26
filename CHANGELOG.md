@@ -1,3 +1,7 @@
+## 3.0.0-alpha.2
+
+- `MailProvider` (was a DoxService): extend it in your app, `shutdown()` is optional.
+
 ## 3.0.0-alpha.1
 
 - First version.

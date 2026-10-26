@@ -123,9 +123,9 @@ void main() {
     );
   });
 
-  test('MailService sets up Mail and closes the transports', () async {
+  test('MailProvider sets up Mail and closes the transports', () async {
     _Closable transport = _Closable();
-    MailService service = MailService(
+    MailProvider service = MailProvider(
       MailConfig(
         defaultMailer: 'x',
         from: const Address('app@example.com'),
