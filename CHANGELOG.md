@@ -1,3 +1,7 @@
+## 3.0.0
+
+- The first stable release.
+
 ## 3.0.0-rc.1
 
 - Docs: README and `docs/mail.md` now say "provider", not "service", for `MailProvider`.
