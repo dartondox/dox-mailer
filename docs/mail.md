@@ -179,7 +179,7 @@ await Mail.later(Duration(minutes: 10), message);
 await Mail.mailer('ses').queue(message, queue: 'emails');
 ```
 
-`queue()` and `later()` give the job id.
+`queue()` and `later()` return the job id.
 
 - The message is checked at once. A bad message fails in the request, not in the worker.
 - The default from and reply-to addresses are added at once.
@@ -203,6 +203,15 @@ await Mail.mailer('ses').queue(message, queue: 'emails');
     An email has personal data. When other people can read Redis or the `jobs` table, use `encrypt: true`.
 
 In tests, use `Mail.fake()` with the `sync` queue driver. A queued email then goes to the fake at once.
+Without a queue, `Mail.queue()` throws. So set up the queue in the test:
+
+```dart
+ArrayTransport mail = Mail.fake();
+Queue.configure(QueueConfig()); // the sync driver
+
+await Mail.queue(message);
+expect(mail.sent, hasLength(1));
+```
 
 ## Transports
 

@@ -162,6 +162,14 @@ void main() {
     expect(queue.pushed, isEmpty);
   });
 
+  test('hand-built JSON with a CRLF header is refused by the worker', () async {
+    Map<String, Object?> json = _full().toJson();
+    json['headers'] = <String, Object?>{'X-Bad': 'a\r\nBcc: evil@example.com'};
+    queue.pushed.add(_Push('main', jsonEncode(json), null, null, false));
+    await expectLater(queue.work(), throwsA(isA<MailException>()));
+    expect(main.sent, isEmpty);
+  });
+
   test('with no queue, Mail.queue is a StateError', () async {
     Mail.useQueue(null);
     await expectLater(Mail.queue(_full()), throwsStateError);
