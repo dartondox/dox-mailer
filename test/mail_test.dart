@@ -215,6 +215,17 @@ void main() {
     expect(seen.last, same(last));
   });
 
+  test('a direct failover send takes a message with no from', () async {
+    // as in 3.0.0: only Mailer.send asks for a from, recipient and body
+    ArrayTransport backup = ArrayTransport();
+    FailoverTransport failover = FailoverTransport(<Transport>[
+      _Broken(),
+      backup,
+    ]);
+    await failover.send(Message(to: <Address>[const Address('a@example.com')]));
+    expect(backup.sent, hasLength(1));
+  });
+
   test('FailoverTransport does not try a bad message', () async {
     _Broken broken = _Broken();
     ArrayTransport backup = ArrayTransport();

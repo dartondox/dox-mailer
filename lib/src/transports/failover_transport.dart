@@ -1,3 +1,4 @@
+import '../header_check.dart';
 import '../message.dart';
 import '../transport.dart';
 
@@ -7,8 +8,9 @@ import '../transport.dart';
 /// [onError] gets the error of each transport that fails, so you can see
 /// why the first ones failed too.
 ///
-/// A bad message (eg. a bad address) throws a `MailException` at once.
-/// It is checked before the first transport, so no transport tries it.
+/// A bad address or a header line break throws a `MailException` at
+/// once. It is checked before the first transport, so no transport tries
+/// it.
 /// ```
 /// 'main': FailoverTransport(<Transport>[ses, smtp]),
 /// ```
@@ -28,7 +30,7 @@ class FailoverTransport extends Transport {
 
   @override
   Future<SentMessage> send(Message message) async {
-    message.check();
+    checkHeaders(message);
     for (int i = 0; i < transports.length; i++) {
       try {
         return await transports[i].send(message);
