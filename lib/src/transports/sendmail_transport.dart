@@ -47,7 +47,8 @@ class SendmailTransport extends Transport {
   final MimeBuilder mime;
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     MimeMessage raw = mime.build(
       message,
       includeBcc: mode == SendmailMode.pipe,

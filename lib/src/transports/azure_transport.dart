@@ -87,7 +87,8 @@ class AzureTransport extends HttpTransport {
   String get provider => 'Azure';
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     Map<String, Object> data = <String, Object>{
       'senderAddress': message.from!.email,
       'content': <String, String>{

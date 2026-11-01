@@ -5,13 +5,13 @@ class _Broken extends Transport {
   int calls = 0;
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
     calls++;
     throw MailException('down');
   }
 }
 
-/// A transport written the way 3.0.0 asked: it sets send(), not deliver().
+/// A transport written the way 3.0.0 asked: it extends Transport and sets send().
 class _Old extends Transport {
   _Old([this.error]);
 
@@ -24,6 +24,20 @@ class _Old extends Transport {
     sent.add(message);
     return SentMessage(message, messageId: 'old-${sent.length}');
   }
+}
+
+/// A transport that implements Transport, the way 3.0.0 allowed.
+class _Implements implements Transport {
+  final List<Message> sent = <Message>[];
+
+  @override
+  Future<SentMessage> send(Message message) async {
+    sent.add(message);
+    return SentMessage(message, messageId: 'impl-${sent.length}');
+  }
+
+  @override
+  Future<void> close() async {}
 }
 
 class _Closable extends ArrayTransport {
@@ -161,6 +175,19 @@ void main() {
       throwsA(isA<MailException>()),
     );
     expect(old.sent, hasLength(1));
+  });
+
+  test('a class that implements Transport still works', () async {
+    _Implements impl = _Implements();
+    Mailer mailer = Mailer('impl', impl, from: const Address('a@example.com'));
+    SentMessage sent = await mailer.send(_message());
+    expect(sent.messageId, 'impl-1');
+    FailoverTransport failover = FailoverTransport(<Transport>[
+      _Broken(),
+      impl,
+    ]);
+    await failover.send(_message(from: const Address('a@example.com')));
+    expect(impl.sent, hasLength(2));
   });
 
   test('FailoverTransport throws the last error, as 3.0.0 did', () async {

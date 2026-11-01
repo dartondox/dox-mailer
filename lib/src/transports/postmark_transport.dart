@@ -38,7 +38,8 @@ class PostmarkTransport extends HttpTransport {
   String get provider => 'Postmark';
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     String join(List<Address> a) => a.map((Address x) => '$x').join(', ');
     Map<String, Object> data = <String, Object>{
       'From': message.from.toString(),

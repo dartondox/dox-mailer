@@ -97,7 +97,7 @@ class SmtpTransport extends Transport {
   Future<void> _last = Future<void>.value();
 
   @override
-  Future<SentMessage> deliver(Message message) {
+  Future<SentMessage> send(Message message) {
     // one message at a time on the connection
     Future<SentMessage> result = _last.then((_) => _send(message));
     _last = result.then((_) {}, onError: (_) {});
@@ -105,6 +105,7 @@ class SmtpTransport extends Transport {
   }
 
   Future<SentMessage> _send(Message message) async {
+    message.check();
     MimeMessage raw = mime.build(message);
     SmtpConnection? open = _connection;
     if (open != null && !open.isClosed) {

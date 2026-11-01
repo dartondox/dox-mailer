@@ -14,7 +14,8 @@ class LogTransport extends Transport {
   final void Function(String text) _output;
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     StringBuffer out = StringBuffer('--- mail ---\n');
     out.writeln('From: ${message.from}');
     out.writeln('To: ${message.to.join(', ')}');

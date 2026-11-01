@@ -27,7 +27,8 @@ class FailoverTransport extends Transport {
   onError;
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     for (int i = 0; i < transports.length; i++) {
       try {
         return await transports[i].send(message);

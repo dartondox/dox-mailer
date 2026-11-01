@@ -418,15 +418,13 @@ Extend `Transport` and add it to `mailers`:
 ```dart
 class MyApiTransport extends Transport {
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
     // call your API here
     return SentMessage(message, messageId: 'id from the API');
   }
 }
 ```
 
-Set `deliver()`. `send()` checks the message first, then calls `deliver()`. So the message is checked, and has a from address, when it gets to `deliver()`.
-
-A transport that sets `send()` instead also works. `Mail.send()` checks the message for it. A direct call to its `send()` does not check the message.
+The message is checked, and has a from address, when it gets to `send()` from `Mail.send()`. If you call your transport's `send()` yourself, call `message.check()` first.
 
 For a provider that takes raw MIME, `MimeBuilder().build(message)` gives the MIME text.

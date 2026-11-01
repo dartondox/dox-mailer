@@ -79,7 +79,8 @@ class SesTransport extends HttpTransport {
   }
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     MimeMessage raw = mime.build(message);
     Map<String, String> form = <String, String>{
       'Action': 'SendRawEmail',
@@ -133,7 +134,8 @@ class SesV2Transport extends SesTransport {
   });
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     MimeMessage raw = mime.build(message);
     List<String> emails(List<Address> list) =>
         list.map((Address a) => a.email).toList();

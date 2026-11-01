@@ -10,7 +10,8 @@ class ArrayTransport extends Transport {
   List<Message> get messages => sent.map((SentMessage s) => s.message).toList();
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    message.check();
     SentMessage result = SentMessage(
       message,
       messageId: 'array-${sent.length + 1}',
