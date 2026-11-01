@@ -51,7 +51,7 @@ class MailgunTransport extends HttpTransport {
   String get provider => 'Mailgun';
 
   @override
-  Future<SentMessage> send(Message message) async {
+  Future<SentMessage> deliver(Message message) async {
     String base = endpoint.toString().replaceAll(RegExp(r'/+$'), '');
     http.MultipartRequest request = http.MultipartRequest(
       'POST',

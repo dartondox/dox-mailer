@@ -5,7 +5,7 @@ class _Broken extends Transport {
   int calls = 0;
 
   @override
-  Future<SentMessage> send(Message message) async {
+  Future<SentMessage> deliver(Message message) async {
     calls++;
     throw MailException('down');
   }
@@ -105,6 +105,15 @@ void main() {
     expect(lines.single, contains('Hello Ann'));
   });
 
+  test('a direct transport send checks the message', () async {
+    ArrayTransport array = ArrayTransport();
+    await expectLater(
+      array.send(_message()), // no from address
+      throwsA(isA<MailException>()),
+    );
+    expect(array.sent, isEmpty);
+  });
+
   test('FailoverTransport tries the next one', () async {
     _Broken broken = _Broken();
     ArrayTransport backup = ArrayTransport();
@@ -119,8 +128,40 @@ void main() {
     ]);
     await expectLater(
       allDown.send(_message(from: const Address('a@example.com'))),
-      throwsA(isA<MailException>()),
+      throwsA(
+        isA<FailoverException>()
+            .having((FailoverException e) => e.errors, 'errors', hasLength(2))
+            .having(
+              (FailoverException e) => e.message,
+              'message',
+              'every transport failed: MailException: down; '
+                  'MailException: down',
+            ),
+      ),
     );
+  });
+
+  test('FailoverTransport does not try a bad message', () async {
+    _Broken broken = _Broken();
+    ArrayTransport backup = ArrayTransport();
+    FailoverTransport failover = FailoverTransport(<Transport>[broken, backup]);
+    Message bad = Message(
+      from: const Address('a@example.com'),
+      to: <Address>[const Address('not an email')],
+      text: 'x',
+    );
+    await expectLater(
+      failover.send(bad),
+      throwsA(
+        isA<MailException>().having(
+          (MailException e) => e,
+          'type',
+          isNot(isA<FailoverException>()),
+        ),
+      ),
+    );
+    expect(broken.calls, 0);
+    expect(backup.sent, isEmpty);
   });
 
   test('MailProvider sets up Mail and closes the transports', () async {

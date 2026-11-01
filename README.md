@@ -330,7 +330,7 @@ Keeps each email in a list and sends nothing. See [Testing](#testing).
 
 ### Failover
 
-Tries each transport in order, until one sends the email.
+Tries each transport in order, until one sends the email. When every transport fails, it throws a `FailoverException`. Its `errors` list has the error of each transport. A bad message, eg. a bad address, throws a `MailException` at once and no transport tries it.
 
 ```dart
 SesV2Transport ses = SesV2Transport(key: '...', secret: '...');
@@ -418,13 +418,13 @@ Extend `Transport` and add it to `mailers`:
 ```dart
 class MyApiTransport extends Transport {
   @override
-  Future<SentMessage> send(Message message) async {
+  Future<SentMessage> deliver(Message message) async {
     // call your API here
     return SentMessage(message, messageId: 'id from the API');
   }
 }
 ```
 
-The message is checked, and has a from address, when it gets to `send()`.
+Set `deliver()`, not `send()`. `send()` checks the message first, then calls `deliver()`. So the message is checked, and has a from address, when it gets to `deliver()`.
 
 For a provider that takes raw MIME, `MimeBuilder().build(message)` gives the MIME text.

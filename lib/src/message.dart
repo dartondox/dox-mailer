@@ -89,7 +89,8 @@ class Message {
   }
 
   /// Throws a [MailException] when the message can not be sent: no
-  /// sender, no recipient, no body, or a bad address or header.
+  /// sender, no recipient, no body, or a bad address, header or
+  /// attachment.
   void check() {
     Address? sender = from;
     if (sender == null) {
@@ -116,6 +117,20 @@ class Message {
         throw MailException('the "$name" header has a line break');
       }
     });
+    // the content type and cid go into MIME headers as they are
+    for (Attachment file in attachments) {
+      for (String? value in <String?>[
+        file.filename,
+        file.contentType,
+        file.cid,
+      ]) {
+        if (value != null && value.contains(RegExp(r'[\r\n]'))) {
+          throw MailException(
+            'the attachment "${file.filename}" has a line break',
+          );
+        }
+      }
+    }
   }
 }
 

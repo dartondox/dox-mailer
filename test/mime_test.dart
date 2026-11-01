@@ -237,6 +237,27 @@ void main() {
     expect(() => _message().check(), returnsNormally);
   });
 
+  test('Message.check stops header injection in attachments', () {
+    for (Attachment file in <Attachment>[
+      Attachment(<int>[1], 'a.txt', contentType: 'text/plain\r\nBcc: x@y.z'),
+      Attachment(<int>[1], 'a.png', cid: 'logo>\r\nBcc: x@y.z'),
+      Attachment(<int>[1], 'a\r\nBcc: x@y.z.txt'),
+    ]) {
+      expect(
+        () => _message(attachments: <Attachment>[file]).check(),
+        throwsA(isA<MailException>()),
+      );
+    }
+    expect(
+      () => _message(
+        attachments: <Attachment>[
+          Attachment(<int>[1], 'a.png', cid: 'logo'),
+        ],
+      ).check(),
+      returnsNormally,
+    );
+  });
+
   test('Address.parse', () {
     expect(
       Address.parse('Ann Lee <ann@example.com>'),

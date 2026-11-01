@@ -97,7 +97,7 @@ class SmtpTransport extends Transport {
   Future<void> _last = Future<void>.value();
 
   @override
-  Future<SentMessage> send(Message message) {
+  Future<SentMessage> deliver(Message message) {
     // one message at a time on the connection
     Future<SentMessage> result = _last.then((_) => _send(message));
     _last = result.then((_) {}, onError: (_) {});

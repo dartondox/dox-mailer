@@ -25,7 +25,7 @@ class Mailer {
       from: message.from ?? from,
       replyTo: message.replyTo.isEmpty ? replyTo : null,
     );
-    full.check();
+    // the transport checks the message
     return transport.send(full);
   }
 }

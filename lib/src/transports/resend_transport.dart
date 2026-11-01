@@ -27,7 +27,7 @@ class ResendTransport extends HttpTransport {
   String get provider => 'Resend';
 
   @override
-  Future<SentMessage> send(Message message) async {
+  Future<SentMessage> deliver(Message message) async {
     List<String> list(List<Address> a) =>
         a.map((Address x) => x.toString()).toList();
     List<Map<String, String>> tags = <Map<String, String>>[
