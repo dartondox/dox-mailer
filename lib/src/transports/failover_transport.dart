@@ -16,7 +16,7 @@ class FailoverTransport extends Transport {
   final List<Transport> transports;
 
   @override
-  Future<SentMessage> send(Message message) async {
+  Future<SentMessage> deliver(Message message) async {
     for (int i = 0; i < transports.length; i++) {
       try {
         return await transports[i].send(message);

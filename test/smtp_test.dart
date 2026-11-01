@@ -45,6 +45,21 @@ void main() {
     expect(sent.raw, mail.data);
   });
 
+  test('a direct send checks the message before MAIL FROM', () async {
+    server = await FakeSmtpServer.start();
+    SmtpTransport smtp = SmtpTransport(
+      host: '127.0.0.1',
+      port: server.port,
+      encryption: SmtpEncryption.none,
+    );
+    Message bad = _message().copyWith(
+      to: <Address>[const Address('ann@example.com>\r\nRCPT TO:<x@y.z')],
+    );
+    await expectLater(smtp.send(bad), throwsA(isA<MailException>()));
+    expect(server.commands, isNot(contains(startsWith('MAIL FROM'))));
+    expect(server.mails, isEmpty);
+  });
+
   test('dot-stuffs lines that start with a dot', () async {
     server = await FakeSmtpServer.start();
     SmtpTransport smtp = SmtpTransport(

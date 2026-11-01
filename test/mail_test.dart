@@ -5,7 +5,7 @@ class _Broken extends Transport {
   int calls = 0;
 
   @override
-  Future<SentMessage> send(Message message) async {
+  Future<SentMessage> deliver(Message message) async {
     calls++;
     throw MailException('down');
   }
@@ -103,6 +103,15 @@ void main() {
     expect(lines.single, contains('To: Ann <ann@example.com>'));
     expect(lines.single, contains('Subject: Hi'));
     expect(lines.single, contains('Hello Ann'));
+  });
+
+  test('a direct transport send checks the message', () async {
+    ArrayTransport array = ArrayTransport();
+    await expectLater(
+      array.send(_message()), // no from address
+      throwsA(isA<MailException>()),
+    );
+    expect(array.sent, isEmpty);
   });
 
   test('FailoverTransport tries the next one', () async {
