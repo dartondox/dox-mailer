@@ -24,8 +24,18 @@ class Address {
     return Address(value);
   }
 
+  /// Reads the map of [toJson].
+  factory Address.fromJson(Map<String, Object?> json) {
+    return Address(json['email'] as String, json['name'] as String?);
+  }
+
   final String email;
   final String? name;
+
+  /// `{'email': ..., 'name': ...}`, eg. to save a queued message.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'email': email, 'name': name};
+  }
 
   /// Throws a [MailException] when the address can not be used in a mail
   /// header, eg. it has no `@` or has a line break.

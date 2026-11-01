@@ -1,3 +1,9 @@
+## Unreleased
+
+- New: `Mail.queue(message)` and `Mail.later(delay, message)`. They put the email on the job queue, so the request does not wait. A queue worker sends it later. `Mail.mailer('ses').queue()` and `.later()` keep the mailer, so the worker uses the same transport. Options: `queue` (the queue name) and `encrypt` (save the job data encrypted). The message is checked when it is queued. This needs dox_queue, which sets the queue in `Queue.configure()`.
+- New: `Message.toJson()` and `Message.fromJson()`, also on `Address` and `Attachment`. Attachments are saved as base64.
+- New: the `MailQueue` interface and `Mail.useQueue()`, so a queue package (or a test) can take queued emails.
+
 ## 3.0.0
 
 - The first stable release.

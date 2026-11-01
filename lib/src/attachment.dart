@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -29,6 +30,16 @@ class Attachment {
     );
   }
 
+  /// Reads the map of [toJson].
+  factory Attachment.fromJson(Map<String, Object?> json) {
+    return Attachment(
+      base64.decode(json['bytes'] as String),
+      json['filename'] as String,
+      contentType: json['contentType'] as String?,
+      cid: json['cid'] as String?,
+    );
+  }
+
   final Uint8List bytes;
   final String filename;
   final String contentType;
@@ -37,6 +48,17 @@ class Attachment {
   final String? cid;
 
   bool get isInline => cid != null;
+
+  /// The file as a map, eg. to save a queued message. The bytes are in
+  /// base64, so the map is about 4/3 of the file size.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'filename': filename,
+      'contentType': contentType,
+      'cid': cid,
+      'bytes': base64.encode(bytes),
+    };
+  }
 
   static const Map<String, String> _types = <String, String>{
     'csv': 'text/csv',
