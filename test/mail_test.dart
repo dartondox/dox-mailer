@@ -5,10 +5,39 @@ class _Broken extends Transport {
   int calls = 0;
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
     calls++;
     throw MailException('down');
   }
+}
+
+/// A transport written the way 3.0.0 asked: it extends Transport and sets send().
+class _Old extends Transport {
+  _Old([this.error]);
+
+  final Object? error;
+  final List<Message> sent = <Message>[];
+
+  @override
+  Future<SentMessage> send(Message message) async {
+    if (error != null) throw error!;
+    sent.add(message);
+    return SentMessage(message, messageId: 'old-${sent.length}');
+  }
+}
+
+/// A transport that implements Transport, the way 3.0.0 allowed.
+class _Implements implements Transport {
+  final List<Message> sent = <Message>[];
+
+  @override
+  Future<SentMessage> send(Message message) async {
+    sent.add(message);
+    return SentMessage(message, messageId: 'impl-${sent.length}');
+  }
+
+  @override
+  Future<void> close() async {}
 }
 
 class _Closable extends ArrayTransport {
@@ -105,13 +134,20 @@ void main() {
     expect(lines.single, contains('Hello Ann'));
   });
 
-  test('a direct transport send checks the message', () async {
+  test('a direct transport send stops header injection', () async {
     ArrayTransport array = ArrayTransport();
     await expectLater(
-      array.send(_message()), // no from address
+      array.send(_message(from: const Address('a@example.com\r\nBcc: x@y.z'))),
       throwsA(isA<MailException>()),
     );
     expect(array.sent, isEmpty);
+  });
+
+  test('a direct transport send takes a message with no from', () async {
+    // as in 3.0.0: only Mailer.send asks for a from, recipient and body
+    ArrayTransport array = ArrayTransport();
+    await array.send(Message(to: <Address>[const Address('a@example.com')]));
+    expect(array.sent, hasLength(1));
   });
 
   test('FailoverTransport tries the next one', () async {
@@ -128,16 +164,98 @@ void main() {
     ]);
     await expectLater(
       allDown.send(_message(from: const Address('a@example.com'))),
-      throwsA(
-        isA<FailoverException>()
-            .having((FailoverException e) => e.errors, 'errors', hasLength(2))
-            .having(
-              (FailoverException e) => e.message,
-              'message',
-              'every transport failed: MailException: down; '
-                  'MailException: down',
-            ),
+      throwsA(isA<MailException>()),
+    );
+  });
+
+  test('a transport that sets send() still works', () async {
+    _Old old = _Old();
+    Mailer mailer = Mailer('old', old, from: const Address('app@example.com'));
+    SentMessage sent = await mailer.send(_message());
+    expect(sent.messageId, 'old-1');
+    expect(old.sent.single.from, const Address('app@example.com'));
+    // Mailer.send still checks the message for it
+    await expectLater(
+      mailer.send(
+        Message(to: <Address>[const Address('not an email')], text: 'x'),
       ),
+      throwsA(isA<MailException>()),
+    );
+    expect(old.sent, hasLength(1));
+  });
+
+  test('a class that implements Transport still works', () async {
+    _Implements impl = _Implements();
+    Mailer mailer = Mailer('impl', impl, from: const Address('a@example.com'));
+    SentMessage sent = await mailer.send(_message());
+    expect(sent.messageId, 'impl-1');
+    FailoverTransport failover = FailoverTransport(<Transport>[
+      _Broken(),
+      impl,
+    ]);
+    await failover.send(_message(from: const Address('a@example.com')));
+    expect(impl.sent, hasLength(2));
+  });
+
+  test('FailoverTransport throws the last error, as 3.0.0 did', () async {
+    _Old first = _Old(Exception('first'));
+    StateError last = StateError('last');
+    List<Object> seen = <Object>[];
+    FailoverTransport failover = FailoverTransport(
+      <Transport>[first, _Old(last)],
+      onError: (Transport transport, Object error, StackTrace stack) {
+        seen.add(error);
+      },
+    );
+    await expectLater(
+      failover.send(_message(from: const Address('a@example.com'))),
+      throwsA(same(last)),
+    );
+    expect(seen, hasLength(2));
+    expect(seen.last, same(last));
+  });
+
+  test('a direct failover send takes a message with no from', () async {
+    // as in 3.0.0: only Mailer.send asks for a from, recipient and body
+    ArrayTransport backup = ArrayTransport();
+    FailoverTransport failover = FailoverTransport(<Transport>[
+      _Broken(),
+      backup,
+    ]);
+    await failover.send(Message(to: <Address>[const Address('a@example.com')]));
+    expect(backup.sent, hasLength(1));
+  });
+
+  test('a direct send takes addresses that 3.0.0 took', () async {
+    // only a CR or LF is rejected here; Mailer.send does the full check
+    for (Address odd in <Address>[
+      const Address('root'),
+      const Address('ann lee@example.com'),
+      const Address('a<b>,c;d@example.com'),
+    ]) {
+      Message message = Message(from: odd, to: <Address>[odd], text: 'x');
+      ArrayTransport array = ArrayTransport();
+      await array.send(message);
+      expect(array.sent, hasLength(1));
+      ArrayTransport backup = ArrayTransport();
+      await FailoverTransport(<Transport>[_Broken(), backup]).send(message);
+      expect(backup.sent, hasLength(1));
+      await expectLater(
+        Mailer('x', ArrayTransport()).send(message),
+        throwsA(isA<MailException>()),
+      );
+    }
+    Message crlf = Message(
+      to: <Address>[const Address('root\r\nBcc: x@y.z')],
+      text: 'x',
+    );
+    await expectLater(
+      ArrayTransport().send(crlf),
+      throwsA(isA<MailException>()),
+    );
+    await expectLater(
+      FailoverTransport(<Transport>[ArrayTransport()]).send(crlf),
+      throwsA(isA<MailException>()),
     );
   });
 
@@ -147,19 +265,10 @@ void main() {
     FailoverTransport failover = FailoverTransport(<Transport>[broken, backup]);
     Message bad = Message(
       from: const Address('a@example.com'),
-      to: <Address>[const Address('not an email')],
+      to: <Address>[const Address('ann@example.com\r\nBcc: x@y.z')],
       text: 'x',
     );
-    await expectLater(
-      failover.send(bad),
-      throwsA(
-        isA<MailException>().having(
-          (MailException e) => e,
-          'type',
-          isNot(isA<FailoverException>()),
-        ),
-      ),
-    );
+    await expectLater(failover.send(bad), throwsA(isA<MailException>()));
     expect(broken.calls, 0);
     expect(backup.sent, isEmpty);
   });

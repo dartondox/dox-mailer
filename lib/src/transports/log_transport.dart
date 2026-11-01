@@ -1,6 +1,7 @@
 import '../attachment.dart';
 import '../message.dart';
 import '../transport.dart';
+import '../header_check.dart';
 
 /// Prints the message and sends nothing. Good for local work.
 /// ```
@@ -14,7 +15,8 @@ class LogTransport extends Transport {
   final void Function(String text) _output;
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    checkHeaders(message);
     StringBuffer out = StringBuffer('--- mail ---\n');
     out.writeln('From: ${message.from}');
     out.writeln('To: ${message.to.join(', ')}');

@@ -1,17 +1,21 @@
-import '../mail_exception.dart';
+import '../header_check.dart';
 import '../message.dart';
 import '../transport.dart';
 
-/// Tries each transport in order, until one sends the message. Throws a
-/// [FailoverException] with the error of each transport when none can.
+/// Tries each transport in order, until one sends the message. Throws
+/// the error of the last one when none can.
 ///
-/// A bad message (eg. a bad address) throws a [MailException] at once.
-/// It is checked before the first transport, so no transport tries it.
+/// [onError] gets the error of each transport that fails, so you can see
+/// why the first ones failed too.
+///
+/// A bad address or a header line break throws a `MailException` at
+/// once. It is checked before the first transport, so no transport tries
+/// it.
 /// ```
 /// 'main': FailoverTransport(<Transport>[ses, smtp]),
 /// ```
 class FailoverTransport extends Transport {
-  FailoverTransport(this.transports) {
+  FailoverTransport(this.transports, {this.onError}) {
     if (transports.isEmpty) {
       throw ArgumentError.value(transports, 'transports', 'is empty');
     }
@@ -19,17 +23,23 @@ class FailoverTransport extends Transport {
 
   final List<Transport> transports;
 
+  /// Called with the transport, its error and stack trace each time a
+  /// transport fails.
+  final void Function(Transport transport, Object error, StackTrace stack)?
+  onError;
+
   @override
-  Future<SentMessage> deliver(Message message) async {
-    List<Object> errors = <Object>[];
-    for (Transport transport in transports) {
+  Future<SentMessage> send(Message message) async {
+    checkHeaders(message);
+    for (int i = 0; i < transports.length; i++) {
       try {
-        return await transport.send(message);
-      } catch (error) {
-        errors.add(error);
+        return await transports[i].send(message);
+      } catch (error, stack) {
+        onError?.call(transports[i], error, stack);
+        if (i == transports.length - 1) rethrow;
       }
     }
-    throw FailoverException(errors);
+    throw StateError('unreachable');
   }
 
   @override
@@ -37,24 +47,5 @@ class FailoverTransport extends Transport {
     for (Transport transport in transports) {
       await transport.close();
     }
-  }
-}
-
-/// Thrown by [FailoverTransport] when every transport failed. [errors]
-/// has the error of each transport, in order. The status code and body
-/// are the ones of the last error.
-class FailoverException extends MailException {
-  FailoverException(this.errors)
-    : super(
-        'every transport failed: ${errors.join('; ')}',
-        statusCode: _last(errors)?.statusCode,
-        body: _last(errors)?.body,
-      );
-
-  final List<Object> errors;
-
-  static MailException? _last(List<Object> errors) {
-    Object last = errors.last;
-    return last is MailException ? last : null;
   }
 }

@@ -7,6 +7,7 @@ import '../aws/sigv4.dart';
 import '../message.dart';
 import '../mime/mime_builder.dart';
 import 'http_transport.dart';
+import '../header_check.dart';
 
 /// Sends with Amazon SES, API v1 (`SendRawEmail`).
 /// ```
@@ -79,7 +80,8 @@ class SesTransport extends HttpTransport {
   }
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    checkHeaders(message);
     MimeMessage raw = mime.build(message);
     Map<String, String> form = <String, String>{
       'Action': 'SendRawEmail',
@@ -133,7 +135,8 @@ class SesV2Transport extends SesTransport {
   });
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    checkHeaders(message);
     MimeMessage raw = mime.build(message);
     List<String> emails(List<Address> list) =>
         list.map((Address a) => a.email).toList();

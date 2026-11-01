@@ -6,6 +6,7 @@ import '../address.dart';
 import '../attachment.dart';
 import '../message.dart';
 import 'http_transport.dart';
+import '../header_check.dart';
 
 /// Sends with the Resend API.
 /// ```
@@ -27,7 +28,8 @@ class ResendTransport extends HttpTransport {
   String get provider => 'Resend';
 
   @override
-  Future<SentMessage> deliver(Message message) async {
+  Future<SentMessage> send(Message message) async {
+    checkHeaders(message);
     List<String> list(List<Address> a) =>
         a.map((Address x) => x.toString()).toList();
     List<Map<String, String>> tags = <Map<String, String>>[
