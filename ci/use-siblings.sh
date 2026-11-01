@@ -30,6 +30,7 @@ siblings=(
   "dox-openapi dox_openapi:."
   "ioredis ioredis:."
   "dox-http-native dox_http_native:."
+  "dox-view dox_view:."
 )
 
 if [ "${GITHUB_REF_TYPE:-}" = tag ]; then
