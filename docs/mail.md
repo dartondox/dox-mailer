@@ -196,7 +196,7 @@ await Mail.mailer('ses').queue(message, queue: 'emails');
 !!! warning "The whole email is saved in the queue"
     The addresses, the subject, the body and every attachment are saved in Redis or in the `jobs` table.
     Attachments are saved as base64, so they take about 4/3 of their size.
-    Keep attachments small, a few MB at most. MySQL and MariaDB refuse a job bigger than `max_allowed_packet` (64 MB by default). Redis keeps every job in memory.
+    Keep attachments small, a few MB at most. MySQL and MariaDB refuse a job bigger than `max_allowed_packet` (by default 64 MB in MySQL 8, 16 MB in MariaDB). Redis keeps every job in memory.
     For a big file, write your own job. Save the file path or a storage key in the job, and build the email in `handle()`.
 
 !!! tip "Encrypt personal data"
