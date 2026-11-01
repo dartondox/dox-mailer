@@ -245,11 +245,22 @@ String? get markdown => 'emails/welcome';
 
 - The HTML body is the Markdown as HTML, inside a white card on a grey page.
 - `<a class="button">` shows as a button. In the text body it stays an `<a>` tag, so the link is still there.
+
+!!! warning "User data in Markdown"
+    `{{ }}` escapes HTML, but not Markdown. So a user's name like `[click](https://evil.example)` or `![x](https://evil.example/p.png)` becomes a normal link or image. Laravel works the same way.
+    Links and images with an unsafe URL, like `javascript:`, `vbscript:` or `data:`, lose their URL. Only `http`, `https`, `mailto`, `tel`, `cid` and relative URLs are kept.
+    The same goes for the lines of `MailMessage`.
+
+!!! warning "Indent"
+    Markdown makes a line that starts with 4 spaces into a code block. So do not indent the Markdown inside `@if` or `@each`. Keep it at the start of the line.
 - The text body is the Markdown itself.
 
 To use your own look, override `layout()`. It gets the HTML of the Markdown and returns the full page. Put it in a base class to use it for all your mailables:
 
 ```dart
+import 'package:dox_mailer/dox_mailer.dart';
+import 'package:dox_view/dox_view.dart'; // View, SafeString
+
 abstract class AppMail extends Mailable {
   @override
   String layout(String body) {
@@ -270,7 +281,7 @@ await (MailMessage(subject: 'Invoice paid', to: <Address>[Address('ann@example.c
     .send();
 ```
 
-The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML in a line is escaped.
+The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML in a line is escaped. See "User data in Markdown" above.
 
 ## Notifications
 
@@ -327,6 +338,8 @@ await Notification.send(<Object>[Address('ann@example.com')], InvoicePaid(1));
 
 When the mailable has its own `to` address, that address is used and the route is not.
 
+When a channel throws, the other channels and the other notifiables still get the notification. At the end, `Notification.send()` throws a `NotificationException`. Its `errors` list says which notifiable and channel failed, and why.
+
 ### Queue it
 
 Override `shouldQueue`. The mail channel then puts the email on the job queue, like `Mail.queue()`. This needs [dox_queue](https://pub.dev/packages/dox_queue).
@@ -337,6 +350,16 @@ bool get shouldQueue => true;
 ```
 
 The email is rendered at once. The worker sends the finished email.
+
+These getters set the queue options. They work like the options of `Mail.queue()`:
+
+| Getter | Default | What it does |
+| --- | --- | --- |
+| `queue` | null (`default`) | the queue name |
+| `delay` | null | the worker sends the email after this wait |
+| `encrypt` | `false` | save the job data encrypted with the app key |
+
+`shouldQueue` and these options only change the mail channel. Your own channels still run at once. To queue them, dispatch a job in the channel.
 
 ### Your own channel
 

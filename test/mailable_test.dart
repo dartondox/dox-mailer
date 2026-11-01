@@ -32,6 +32,22 @@ class _WelcomeMail extends Mailable {
   Map<String, Object?> get data => <String, Object?>{'name': name};
 }
 
+class _TemplateMail extends Mailable {
+  _TemplateMail(this.markdown, this.data);
+
+  @override
+  final String markdown;
+
+  @override
+  final Map<String, Object?> data;
+
+  @override
+  List<Address> get to => <Address>[const Address('ann@example.com')];
+
+  @override
+  String get subject => 'Hi';
+}
+
 class _User with Notifiable {
   _User(this.email);
 
@@ -53,12 +69,19 @@ class _SaveChannel implements NotificationChannel {
 }
 
 class _InvoicePaid extends Notification {
-  _InvoicePaid({this.queued = false});
+  _InvoicePaid({this.queued = false, this.wait});
 
   final bool queued;
+  final Duration? wait;
 
   @override
   bool get shouldQueue => queued;
+
+  @override
+  Duration? get delay => wait;
+
+  @override
+  String? get queue => queued ? 'mail' : null;
 
   @override
   List<NotificationChannel> via(Object notifiable) {
@@ -83,6 +106,7 @@ class _InvoicePaid extends Notification {
 
 class _FakeQueue implements MailQueue {
   final List<Message> pushed = <Message>[];
+  final List<String> options = <String>[];
 
   @override
   Future<String> push(
@@ -93,6 +117,7 @@ class _FakeQueue implements MailQueue {
     bool encrypt = false,
   }) async {
     pushed.add(message);
+    options.add('$delay $queue $encrypt');
     return 'job-${pushed.length}';
   }
 }
@@ -109,6 +134,10 @@ void main() {
         .writeAsStringSync('<p>Hi {{ name }}</p>');
     File('${views.path}/welcome_text.dox.html')
         .writeAsStringSync('Hi {{ name }}');
+    File('${views.path}/links.dox.html').writeAsStringSync(
+      'Hi {{ name }}\n\n[site](https://example.com/a:b) [me](mailto:a@b.c) '
+      '[rel](/x?y=a:b) ![logo](cid:logo)\n',
+    );
     View.configure(ViewConfig(path: views.path, cache: false));
   });
 
@@ -168,6 +197,36 @@ void main() {
     });
   });
 
+  group('unsafe links', () {
+    const String bad =
+        '[a](javascript:alert(1)) [b](JaVa&#115;cript&#58;x) '
+        '[c]( vbscript:x ) ![d](data:image/png;base64,xx) <javascript:y>';
+
+    void expectNoUnsafeUrl(String html) {
+      // no href or src with a `javascript:`, `vbscript:` or `data:` URL
+      expect(html, isNot(contains(RegExp('(href|src)="[^"]*(script|data):'))));
+    }
+
+    test('a MailMessage line loses unsafe links', () {
+      String html = (MailMessage()..line(bad)).toMessage().html!;
+      expectNoUnsafeUrl(html);
+      expect(html, contains('<a>a</a>'));
+      expect(html, contains('<a href="JaVa&amp;#115;cript&amp;#58;x">b</a>'));
+      expect(html, contains('<img alt="d" />'));
+    });
+
+    test('{{ }} in a markdown template loses unsafe links', () {
+      String html = _TemplateMail('links', <String, Object?>{
+        'name': bad,
+      }).toMessage().html!;
+      expectNoUnsafeUrl(html);
+      expect(html, contains('<a href="https://example.com/a:b">site</a>'));
+      expect(html, contains('<a href="mailto:a@b.c">me</a>'));
+      expect(html, contains('<a href="/x?y=a:b">rel</a>'));
+      expect(html, contains('src="cid:logo"'));
+    });
+  });
+
   group('MailMessage', () {
     test('escapes lines and makes a button', () {
       Message message =
@@ -217,15 +276,32 @@ void main() {
       _FakeQueue queue = _FakeQueue();
       Mail.useQueue(queue);
       await _User('ann@example.com').notify(_InvoicePaid(queued: true));
-      expect(queue.pushed.single.to.single.email, 'ann@example.com');
+      await _User('bob@example.com')
+          .notify(_InvoicePaid(queued: true, wait: const Duration(minutes: 5)));
+      expect(queue.pushed.first.to.single.email, 'ann@example.com');
+      expect(queue.options, <String>[
+        'null mail false',
+        '0:05:00.000000 mail false',
+      ]);
       expect(mail.messages, isEmpty);
     });
 
-    test('no mail address throws', () async {
-      await expectLater(
-        _User(null).notify(_InvoicePaid()),
-        throwsA(isA<MailException>()),
-      );
+    test('a failed send does not stop the others', () async {
+      _User noAddress = _User(null);
+      _User bob = _User('bob@example.com');
+      Object? thrown;
+      try {
+        await Notification.send(<Object>[noAddress, bob], _InvoicePaid());
+      } catch (error) {
+        thrown = error;
+      }
+      NotificationException e = thrown! as NotificationException;
+      expect(e.errors.single.notifiable, noAddress);
+      expect(e.errors.single.error, isA<MailException>());
+      // the other channel of the same user, and the next user, still ran
+      expect(noAddress.saved, hasLength(1));
+      expect(mail.messages.single.to.single.email, 'bob@example.com');
+      expect(bob.saved, hasLength(1));
     });
   });
 }

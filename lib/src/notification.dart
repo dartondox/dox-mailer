@@ -45,19 +45,67 @@ abstract class Notification {
   Map<String, Object?> toArray(Object notifiable) => const <String, Object?>{};
 
   /// True: [MailChannel] puts the email on the job queue (needs
-  /// dox_queue) and does not send it at once.
+  /// dox_queue) and does not send it at once. Only the mail channel
+  /// reads it. Your own channels run at once.
   bool get shouldQueue => false;
 
+  /// The queue name of a queued email. Null: the default queue.
+  String? get queue => null;
+
+  /// The worker sends a queued email after this wait. Null: no wait.
+  Duration? get delay => null;
+
+  /// Save the queued email encrypted with the app key.
+  bool get encrypt => false;
+
   /// Sends [notification] to each of [notifiables], on each channel.
+  ///
+  /// When a channel throws, the other channels and notifiables still
+  /// get it. At the end, a [NotificationException] lists every error.
   static Future<void> send(
     Iterable<Object> notifiables,
     Notification notification,
   ) async {
+    List<NotificationError> errors = <NotificationError>[];
     for (Object notifiable in notifiables) {
       for (NotificationChannel channel in notification.via(notifiable)) {
-        await channel.send(notifiable, notification);
+        try {
+          await channel.send(notifiable, notification);
+        } catch (error, stack) {
+          errors.add(NotificationError(notifiable, channel, error, stack));
+        }
       }
     }
+    if (errors.isNotEmpty) throw NotificationException(errors);
+  }
+}
+
+/// One failed send of `Notification.send()`.
+class NotificationError {
+  const NotificationError(
+    this.notifiable,
+    this.channel,
+    this.error,
+    this.stack,
+  );
+
+  final Object notifiable;
+  final NotificationChannel channel;
+  final Object error;
+  final StackTrace stack;
+}
+
+/// Thrown by `Notification.send()` after it tried every notifiable and
+/// every channel, when one or more of them failed.
+class NotificationException implements Exception {
+  NotificationException(this.errors);
+
+  final List<NotificationError> errors;
+
+  @override
+  String toString() {
+    return 'NotificationException: ${errors.length} failed, '
+        'the first: ${errors.first.error}';
   }
 }
 
@@ -104,8 +152,20 @@ class MailChannel implements NotificationChannel {
       message = message.copyWith(to: _route(notifiable));
     }
     Mailer mailer = Mail.mailer(mail.mailer);
-    if (notification.shouldQueue) {
-      await mailer.queue(message);
+    Duration? delay = notification.delay;
+    if (notification.shouldQueue && delay != null) {
+      await mailer.later(
+        delay,
+        message,
+        queue: notification.queue,
+        encrypt: notification.encrypt,
+      );
+    } else if (notification.shouldQueue) {
+      await mailer.queue(
+        message,
+        queue: notification.queue,
+        encrypt: notification.encrypt,
+      );
     } else {
       await mailer.send(message);
     }

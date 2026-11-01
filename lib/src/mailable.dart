@@ -88,7 +88,7 @@ abstract class Mailable {
     if (textView != null) text = _unescape(View.render(textView, data));
     if (markdown != null) {
       String source = View.render(markdown, data);
-      html ??= layout(markdownToHtml(source));
+      html ??= layout(_markdownHtml(source));
       text ??= _unescape(source);
     }
     return Message(
@@ -184,19 +184,65 @@ class MailMessage extends Mailable {
   }
 
   @override
-  String get html => layout(markdownToHtml(_parts(true).join('\n\n')));
+  String get html => layout(_markdownHtml(_parts(true).join('\n\n')));
 
   @override
   String get text => _parts(false).join('\n\n');
 }
 
-/// [markdown] as HTML, with GitHub tables and lists
-String markdownToHtml(String markdown) {
-  return md.markdownToHtml(
-    markdown,
+/// [markdown] as HTML, with GitHub tables and lists. Links and images
+/// with an unsafe scheme, like `javascript:` or `data:`, lose their URL.
+/// Laravel does the same (`allow_unsafe_links` is off).
+String _markdownHtml(String markdown) {
+  List<md.Node> nodes = md.Document(
     extensionSet: md.ExtensionSet.gitHubFlavored,
-  );
+  ).parse(markdown);
+  _dropUnsafeUrls(nodes);
+  return '${md.renderToHtml(nodes)}\n';
 }
+
+/// the schemes a link or an image of a Markdown email may use
+const Set<String> _safeSchemes = <String>{
+  'http',
+  'https',
+  'mailto',
+  'tel',
+  'cid',
+};
+
+void _dropUnsafeUrls(List<md.Node>? nodes) {
+  for (md.Node node in nodes ?? const <md.Node>[]) {
+    if (node is! md.Element) continue;
+    for (String name in const <String>['href', 'src']) {
+      String? url = node.attributes[name];
+      if (url == null) continue;
+      if (_isSafeUrl(url)) {
+        // the renderer writes `&` as it is, so `&#58;` would turn into
+        // a `:` in the browser. Escape it: the browser sees the text.
+        node.attributes[name] = url.replaceAll('&', '&amp;');
+      } else {
+        node.attributes.remove(name);
+      }
+    }
+    _dropUnsafeUrls(node.children);
+  }
+}
+
+/// True for a relative URL or a URL with a scheme of [_safeSchemes].
+/// Browsers skip spaces and control characters in a scheme, so they
+/// are removed first. package:markdown has decoded entities already.
+bool _isSafeUrl(String url) {
+  String value = String.fromCharCodes(url.codeUnits.where(_isVisible))
+      .toLowerCase();
+  int colon = value.indexOf(':');
+  if (colon < 0) return true;
+  String scheme = value.substring(0, colon);
+  // a colon after the path start, like `/a:b` or `?x=a:b`, is no scheme
+  if (scheme.contains(RegExp(r'[/?#]'))) return true;
+  return _safeSchemes.contains(scheme);
+}
+
+bool _isVisible(int char) => char > 0x20;
 
 /// The default page around a Markdown email body: a white card on a
 /// grey page, and `<a class="button">` as a button. Email apps do not
