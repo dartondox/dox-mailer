@@ -3,41 +3,40 @@ import 'attachment.dart';
 import 'mail_exception.dart';
 import 'message.dart';
 
-/// Throws a [MailException] when a part of [message] could add new mail
-/// headers: a bad address, or a line break in the subject, a header or
-/// an attachment's content type or cid.
+final RegExp _lineBreak = RegExp(r'[\r\n]');
+
+/// Throws a [MailException] when a part of [message] has a CR or LF, so
+/// it could add new mail headers. It looks at the addresses and names,
+/// the subject, the header names and values, and each attachment's
+/// content type and cid.
 ///
-/// It does not ask for a from address, a recipient or a body, so a
-/// direct transport send works as in 3.0.0. `Message.check` does both.
-/// Not exported: it is only for the built-in transports.
+/// It only looks for CR and LF. So a direct transport send takes the same
+/// messages as in 3.0.0, eg. `Address('root')`. `Message.check` does the
+/// full check. Not exported: it is only for the built-in transports.
 void checkHeaders(Message message) {
   for (Address address in <Address>[
     ?message.from,
     ...message.recipients,
     ...message.replyTo,
   ]) {
-    address.check();
+    _noLineBreak(address.email, 'the address "${address.email}"');
+    _noLineBreak(address.name, 'the name of "${address.email}"');
   }
-  if (message.subject.contains(RegExp(r'[\r\n]'))) {
-    throw MailException('the subject has a line break');
-  }
+  _noLineBreak(message.subject, 'the subject');
   message.headers.forEach((String name, String value) {
-    if (!RegExp(r'^[!-9;-~]+$').hasMatch(name)) {
-      throw MailException('"$name" is not a valid header name');
-    }
-    if (value.contains(RegExp(r'[\r\n]'))) {
-      throw MailException('the "$name" header has a line break');
-    }
+    _noLineBreak(name, 'the header name "$name"');
+    _noLineBreak(value, 'the "$name" header');
   });
   // the content type and cid go into MIME headers as they are. The file
   // name is encoded, so it is safe.
   for (Attachment file in message.attachments) {
-    for (String? value in <String?>[file.contentType, file.cid]) {
-      if (value != null && value.contains(RegExp(r'[\r\n]'))) {
-        throw MailException(
-          'the attachment "${file.filename}" has a line break',
-        );
-      }
-    }
+    _noLineBreak(file.contentType, 'the attachment "${file.filename}"');
+    _noLineBreak(file.cid, 'the attachment "${file.filename}"');
+  }
+}
+
+void _noLineBreak(String? value, String what) {
+  if (value != null && value.contains(_lineBreak)) {
+    throw MailException('$what has a line break');
   }
 }

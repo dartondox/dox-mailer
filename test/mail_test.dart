@@ -226,13 +226,46 @@ void main() {
     expect(backup.sent, hasLength(1));
   });
 
+  test('a direct send takes addresses that 3.0.0 took', () async {
+    // only a CR or LF is rejected here; Mailer.send does the full check
+    for (Address odd in <Address>[
+      const Address('root'),
+      const Address('ann lee@example.com'),
+      const Address('a<b>,c;d@example.com'),
+    ]) {
+      Message message = Message(from: odd, to: <Address>[odd], text: 'x');
+      ArrayTransport array = ArrayTransport();
+      await array.send(message);
+      expect(array.sent, hasLength(1));
+      ArrayTransport backup = ArrayTransport();
+      await FailoverTransport(<Transport>[_Broken(), backup]).send(message);
+      expect(backup.sent, hasLength(1));
+      await expectLater(
+        Mailer('x', ArrayTransport()).send(message),
+        throwsA(isA<MailException>()),
+      );
+    }
+    Message crlf = Message(
+      to: <Address>[const Address('root\r\nBcc: x@y.z')],
+      text: 'x',
+    );
+    await expectLater(
+      ArrayTransport().send(crlf),
+      throwsA(isA<MailException>()),
+    );
+    await expectLater(
+      FailoverTransport(<Transport>[ArrayTransport()]).send(crlf),
+      throwsA(isA<MailException>()),
+    );
+  });
+
   test('FailoverTransport does not try a bad message', () async {
     _Broken broken = _Broken();
     ArrayTransport backup = ArrayTransport();
     FailoverTransport failover = FailoverTransport(<Transport>[broken, backup]);
     Message bad = Message(
       from: const Address('a@example.com'),
-      to: <Address>[const Address('not an email')],
+      to: <Address>[const Address('ann@example.com\r\nBcc: x@y.z')],
       text: 'x',
     );
     await expectLater(failover.send(bad), throwsA(isA<MailException>()));

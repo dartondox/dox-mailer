@@ -102,6 +102,14 @@ class Message {
     if (text == null && html == null) {
       throw MailException('the message has no text and no html');
     }
+    for (Address address in <Address>[from!, ...recipients, ...replyTo]) {
+      address.check();
+    }
+    for (String name in headers.keys) {
+      if (!RegExp(r'^[!-9;-~]+$').hasMatch(name)) {
+        throw MailException('"$name" is not a valid header name');
+      }
+    }
     checkHeaders(this);
   }
 }
