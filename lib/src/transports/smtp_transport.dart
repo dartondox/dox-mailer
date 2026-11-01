@@ -9,6 +9,7 @@ import '../mime/mime_builder.dart';
 import '../smtp/smtp_connection.dart';
 import '../smtp/smtp_protocol.dart';
 import '../transport.dart';
+import '../header_check.dart';
 
 /// How the SMTP connection is secured.
 enum SmtpEncryption {
@@ -105,7 +106,7 @@ class SmtpTransport extends Transport {
   }
 
   Future<SentMessage> _send(Message message) async {
-    message.check();
+    checkHeaders(message);
     MimeMessage raw = mime.build(message);
     SmtpConnection? open = _connection;
     if (open != null && !open.isClosed) {

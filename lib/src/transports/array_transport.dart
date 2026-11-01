@@ -1,5 +1,6 @@
 import '../message.dart';
 import '../transport.dart';
+import '../header_check.dart';
 
 /// Keeps every message in [sent] and sends nothing. For tests.
 /// `Mail.fake()` uses it.
@@ -11,7 +12,7 @@ class ArrayTransport extends Transport {
 
   @override
   Future<SentMessage> send(Message message) async {
-    message.check();
+    checkHeaders(message);
     SentMessage result = SentMessage(
       message,
       messageId: 'array-${sent.length + 1}',

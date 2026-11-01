@@ -241,7 +241,6 @@ void main() {
     for (Attachment file in <Attachment>[
       Attachment(<int>[1], 'a.txt', contentType: 'text/plain\r\nBcc: x@y.z'),
       Attachment(<int>[1], 'a.png', cid: 'logo>\r\nBcc: x@y.z'),
-      Attachment(<int>[1], 'a\r\nBcc: x@y.z.txt'),
     ]) {
       expect(
         () => _message(attachments: <Attachment>[file]).check(),
@@ -252,6 +251,8 @@ void main() {
       () => _message(
         attachments: <Attachment>[
           Attachment(<int>[1], 'a.png', cid: 'logo'),
+          // the file name is encoded, so a line break in it is safe
+          Attachment(<int>[1], 'a\r\nBcc: x@y.z.txt'),
         ],
       ).check(),
       returnsNormally,

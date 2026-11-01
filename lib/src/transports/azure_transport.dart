@@ -8,6 +8,7 @@ import '../address.dart';
 import '../attachment.dart';
 import '../message.dart';
 import 'http_transport.dart';
+import '../header_check.dart';
 
 /// Sends with the Azure Communication Services Email REST API. It signs
 /// each request with the access key (HMAC-SHA256).
@@ -88,7 +89,7 @@ class AzureTransport extends HttpTransport {
 
   @override
   Future<SentMessage> send(Message message) async {
-    message.check();
+    checkHeaders(message);
     Map<String, Object> data = <String, Object>{
       'senderAddress': message.from!.email,
       'content': <String, String>{

@@ -1,5 +1,6 @@
 import 'address.dart';
 import 'attachment.dart';
+import 'header_check.dart';
 import 'mail_exception.dart';
 
 /// An email.
@@ -92,8 +93,7 @@ class Message {
   /// sender, no recipient, no body, or a bad address, header or
   /// attachment.
   void check() {
-    Address? sender = from;
-    if (sender == null) {
+    if (from == null) {
       throw MailException('the message has no from address');
     }
     if (recipients.isEmpty) {
@@ -102,35 +102,7 @@ class Message {
     if (text == null && html == null) {
       throw MailException('the message has no text and no html');
     }
-    sender.check();
-    for (Address address in <Address>[...recipients, ...replyTo]) {
-      address.check();
-    }
-    if (subject.contains(RegExp(r'[\r\n]'))) {
-      throw MailException('the subject has a line break');
-    }
-    headers.forEach((String name, String value) {
-      if (!RegExp(r'^[!-9;-~]+$').hasMatch(name)) {
-        throw MailException('"$name" is not a valid header name');
-      }
-      if (value.contains(RegExp(r'[\r\n]'))) {
-        throw MailException('the "$name" header has a line break');
-      }
-    });
-    // the content type and cid go into MIME headers as they are
-    for (Attachment file in attachments) {
-      for (String? value in <String?>[
-        file.filename,
-        file.contentType,
-        file.cid,
-      ]) {
-        if (value != null && value.contains(RegExp(r'[\r\n]'))) {
-          throw MailException(
-            'the attachment "${file.filename}" has a line break',
-          );
-        }
-      }
-    }
+    checkHeaders(this);
   }
 }
 

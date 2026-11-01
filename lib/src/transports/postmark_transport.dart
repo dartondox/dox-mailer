@@ -6,6 +6,7 @@ import '../address.dart';
 import '../attachment.dart';
 import '../message.dart';
 import 'http_transport.dart';
+import '../header_check.dart';
 
 /// Sends with the Postmark API.
 /// ```
@@ -39,7 +40,7 @@ class PostmarkTransport extends HttpTransport {
 
   @override
   Future<SentMessage> send(Message message) async {
-    message.check();
+    checkHeaders(message);
     String join(List<Address> a) => a.map((Address x) => '$x').join(', ');
     Map<String, Object> data = <String, Object>{
       'From': message.from.toString(),

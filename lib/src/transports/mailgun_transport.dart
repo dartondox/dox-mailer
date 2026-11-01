@@ -6,6 +6,7 @@ import '../address.dart';
 import '../attachment.dart';
 import '../message.dart';
 import 'http_transport.dart';
+import '../header_check.dart';
 
 /// The Mailgun region of your domain.
 enum MailgunRegion { us, eu }
@@ -52,7 +53,7 @@ class MailgunTransport extends HttpTransport {
 
   @override
   Future<SentMessage> send(Message message) async {
-    message.check();
+    checkHeaders(message);
     String base = endpoint.toString().replaceAll(RegExp(r'/+$'), '');
     http.MultipartRequest request = http.MultipartRequest(
       'POST',

@@ -9,6 +9,7 @@ import '../mime/mime_builder.dart';
 import '../smtp/smtp_connection.dart';
 import '../smtp/smtp_protocol.dart';
 import '../transport.dart';
+import '../header_check.dart';
 
 /// How to talk to sendmail.
 enum SendmailMode {
@@ -48,7 +49,7 @@ class SendmailTransport extends Transport {
 
   @override
   Future<SentMessage> send(Message message) async {
-    message.check();
+    checkHeaders(message);
     MimeMessage raw = mime.build(
       message,
       includeBcc: mode == SendmailMode.pipe,

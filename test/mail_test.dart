@@ -134,13 +134,20 @@ void main() {
     expect(lines.single, contains('Hello Ann'));
   });
 
-  test('a direct transport send checks the message', () async {
+  test('a direct transport send stops header injection', () async {
     ArrayTransport array = ArrayTransport();
     await expectLater(
-      array.send(_message()), // no from address
+      array.send(_message(from: const Address('a@example.com\r\nBcc: x@y.z'))),
       throwsA(isA<MailException>()),
     );
     expect(array.sent, isEmpty);
+  });
+
+  test('a direct transport send takes a message with no from', () async {
+    // as in 3.0.0: only Mailer.send asks for a from, recipient and body
+    ArrayTransport array = ArrayTransport();
+    await array.send(Message(to: <Address>[const Address('a@example.com')]));
+    expect(array.sent, hasLength(1));
   });
 
   test('FailoverTransport tries the next one', () async {

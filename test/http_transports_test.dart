@@ -380,6 +380,23 @@ void main() {
     });
   });
 
+  test('Resend stops header injection', () async {
+    _Recorder r = _Recorder(200, '{"id":"re-1"}');
+    ResendTransport resend = ResendTransport(
+      apiKey: 're_test',
+      client: r.client,
+    );
+    await expectLater(
+      resend.send(
+        _message().copyWith(
+          to: <Address>[const Address('ann@example.com\r\nBcc: x@y.z')],
+        ),
+      ),
+      throwsA(isA<MailException>()),
+    );
+    expect(r.requests, isEmpty);
+  });
+
   test('Resend error is a MailException', () async {
     _Recorder r = _Recorder(422, '{"message":"Invalid from"}');
     ResendTransport resend = ResendTransport(
