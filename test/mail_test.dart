@@ -11,6 +11,21 @@ class _Broken extends Transport {
   }
 }
 
+/// A transport written the way 3.0.0 asked: it sets send(), not deliver().
+class _Old extends Transport {
+  _Old([this.error]);
+
+  final Object? error;
+  final List<Message> sent = <Message>[];
+
+  @override
+  Future<SentMessage> send(Message message) async {
+    if (error != null) throw error!;
+    sent.add(message);
+    return SentMessage(message, messageId: 'old-${sent.length}');
+  }
+}
+
 class _Closable extends ArrayTransport {
   bool closed = false;
 
@@ -128,17 +143,42 @@ void main() {
     ]);
     await expectLater(
       allDown.send(_message(from: const Address('a@example.com'))),
-      throwsA(
-        isA<FailoverException>()
-            .having((FailoverException e) => e.errors, 'errors', hasLength(2))
-            .having(
-              (FailoverException e) => e.message,
-              'message',
-              'every transport failed: MailException: down; '
-                  'MailException: down',
-            ),
-      ),
+      throwsA(isA<MailException>()),
     );
+  });
+
+  test('a transport that sets send() still works', () async {
+    _Old old = _Old();
+    Mailer mailer = Mailer('old', old, from: const Address('app@example.com'));
+    SentMessage sent = await mailer.send(_message());
+    expect(sent.messageId, 'old-1');
+    expect(old.sent.single.from, const Address('app@example.com'));
+    // Mailer.send still checks the message for it
+    await expectLater(
+      mailer.send(
+        Message(to: <Address>[const Address('not an email')], text: 'x'),
+      ),
+      throwsA(isA<MailException>()),
+    );
+    expect(old.sent, hasLength(1));
+  });
+
+  test('FailoverTransport throws the last error, as 3.0.0 did', () async {
+    _Old first = _Old(Exception('first'));
+    StateError last = StateError('last');
+    List<Object> seen = <Object>[];
+    FailoverTransport failover = FailoverTransport(
+      <Transport>[first, _Old(last)],
+      onError: (Transport transport, Object error, StackTrace stack) {
+        seen.add(error);
+      },
+    );
+    await expectLater(
+      failover.send(_message(from: const Address('a@example.com'))),
+      throwsA(same(last)),
+    );
+    expect(seen, hasLength(2));
+    expect(seen.last, same(last));
   });
 
   test('FailoverTransport does not try a bad message', () async {
@@ -150,16 +190,7 @@ void main() {
       to: <Address>[const Address('not an email')],
       text: 'x',
     );
-    await expectLater(
-      failover.send(bad),
-      throwsA(
-        isA<MailException>().having(
-          (MailException e) => e,
-          'type',
-          isNot(isA<FailoverException>()),
-        ),
-      ),
-    );
+    await expectLater(failover.send(bad), throwsA(isA<MailException>()));
     expect(broken.calls, 0);
     expect(backup.sent, isEmpty);
   });
