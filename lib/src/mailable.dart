@@ -164,8 +164,14 @@ class MailMessage extends Mailable {
     _text.add(text);
   }
 
-  /// add a button that opens [url]
+  /// Add a button that opens [url]. Throws an [ArgumentError] for a
+  /// URL with an unsafe scheme, like `javascript:` or `data:`. Only
+  /// `http`, `https`, `mailto`, `tel`, `cid` and relative URLs work.
   void action(String label, String url) {
+    // throw, not drop the href: a dead button would hide the mistake
+    if (!_isSafeUrl(url)) {
+      throw ArgumentError.value(url, 'url', 'is not a safe link');
+    }
     _markdown.add(
       '<a href="${escapeHtml(url)}" class="button">${escapeHtml(label)}</a>',
     );

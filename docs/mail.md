@@ -235,7 +235,9 @@ Thanks for joining. Here is what you can do next:
 - Fill in your profile
 - Invite your team
 
-<a href="{{ url }}" class="button">Open the app</a>
+[Open your profile]({{ profileUrl }})
+
+<a href="{{ route('dashboard') }}" class="button">Open the app</a>
 ```
 
 ```dart
@@ -244,16 +246,17 @@ String? get markdown => 'emails/welcome';
 ```
 
 - The HTML body is the Markdown as HTML, inside a white card on a grey page.
+- The text body is the Markdown itself.
 - `<a class="button">` shows as a button. In the text body it stays an `<a>` tag, so the link is still there.
 
 !!! warning "User data in Markdown"
     `{{ }}` escapes HTML, but not Markdown. So a user's name like `[click](https://evil.example)` or `![x](https://evil.example/p.png)` becomes a normal link or image. Laravel works the same way.
     Links and images with an unsafe URL, like `javascript:`, `vbscript:` or `data:`, lose their URL. Only `http`, `https`, `mailto`, `tel`, `cid` and relative URLs are kept.
-    The same goes for the lines of `MailMessage`.
+    The same goes for the lines of `MailMessage`. `MailMessage.action()` throws an `ArgumentError` for an unsafe URL.
+    Raw HTML in the template, like `<a href="{{ url }}">`, is not checked. In raw HTML, use only URLs that your app builds, like `route()`. For a URL from a user, use a Markdown link: `[text]({{ url }})`.
 
 !!! warning "Indent"
     Markdown makes a line that starts with 4 spaces into a code block. So do not indent the Markdown inside `@if` or `@each`. Keep it at the start of the line.
-- The text body is the Markdown itself.
 
 To use your own look, override `layout()`. It gets the HTML of the Markdown and returns the full page. Put it in a base class to use it for all your mailables:
 
@@ -322,7 +325,7 @@ class User extends Model<User> with Notifiable {
 }
 ```
 
-The route can be an `Address`, an email text like `Ann <ann@example.com>`, or a `List<Address>`.
+The route can be an `Address`, an email text like `Ann <ann@example.com>`, or a list of these.
 
 Then send:
 
@@ -338,7 +341,7 @@ await Notification.send(<Object>[Address('ann@example.com')], InvoicePaid(1));
 
 When the mailable has its own `to` address, that address is used and the route is not.
 
-When a channel throws, the other channels and the other notifiables still get the notification. At the end, `Notification.send()` throws a `NotificationException`. Its `errors` list says which notifiable and channel failed, and why.
+When a channel throws, the other channels and the other notifiables still get the notification. At the end, `Notification.send()` throws a `NotificationException`. Its `errors` list says which notifiable and channel failed, and why. When `via()` throws, the channel is null. The error text lists every failure.
 
 ### Queue it
 
@@ -359,7 +362,7 @@ These getters set the queue options. They work like the options of `Mail.queue()
 | `delay` | null | the worker sends the email after this wait |
 | `encrypt` | `false` | save the job data encrypted with the app key |
 
-`shouldQueue` and these options only change the mail channel. Your own channels still run at once. To queue them, dispatch a job in the channel.
+When `shouldQueue` is false, the email is sent at once and these options do nothing. `shouldQueue` and these options only change the mail channel. Your own channels still run at once. To queue them, dispatch a job in the channel.
 
 ### Your own channel
 

@@ -48,6 +48,25 @@ class _TemplateMail extends Mailable {
   String get subject => 'Hi';
 }
 
+class _ListUser with Notifiable {
+  @override
+  Object? routeNotificationFor(String channel) {
+    return <Object>[const Address('a@example.com'), 'B <b@example.com>'];
+  }
+}
+
+/// [via] throws for a notifiable that is not an [Address]
+class _PickyNotification extends Notification {
+  @override
+  List<NotificationChannel> via(Object notifiable) {
+    if (notifiable is! Address) throw StateError('no channel');
+    return <NotificationChannel>[const MailChannel()];
+  }
+
+  @override
+  Mailable toMail(Object notifiable) => MailMessage()..line('Hi');
+}
+
 class _User with Notifiable {
   _User(this.email);
 
@@ -228,6 +247,29 @@ void main() {
   });
 
   group('MailMessage', () {
+    test('action() throws for an unsafe URL', () {
+      for (String url in <String>[
+        'javascript:alert(1)',
+        ' JavaScript:alert(1)',
+        'java\tscript:x',
+        'data:text/html,x',
+        'vbscript:x',
+      ]) {
+        expect(
+          () => MailMessage().action('Go', url),
+          throwsArgumentError,
+          reason: url,
+        );
+      }
+      for (String url in <String>[
+        'https://example.com/a:b',
+        'mailto:a@b.c',
+        '/reset?token=a:b',
+      ]) {
+        MailMessage().action('Go', url);
+      }
+    });
+
     test('escapes lines and makes a button', () {
       Message message =
           (MailMessage(subject: 'Hi')
@@ -302,6 +344,34 @@ void main() {
       expect(noAddress.saved, hasLength(1));
       expect(mail.messages.single.to.single.email, 'bob@example.com');
       expect(bob.saved, hasLength(1));
+      expect(
+        '$e',
+        allOf(contains('1 failed'), contains('on MailChannel: MailException')),
+      );
+    });
+
+    test('a failed via() does not stop the others', () async {
+      Object? thrown;
+      try {
+        await Notification.send(<Object>[
+          'not a user',
+          const Address('b@example.com'),
+        ], _PickyNotification());
+      } catch (error) {
+        thrown = error;
+      }
+      NotificationException e = thrown! as NotificationException;
+      expect(e.errors.single.channel, isNull);
+      expect('$e', contains('- not a user on via(): Bad state: no channel'));
+      expect(mail.messages.single.to.single.email, 'b@example.com');
+    });
+
+    test('the mail route can be a list of addresses and email texts', () async {
+      await _ListUser().notify(_InvoicePaid());
+      expect(mail.messages.single.to.map((Address a) => a.email), <String>[
+        'a@example.com',
+        'b@example.com',
+      ]);
     });
   });
 }

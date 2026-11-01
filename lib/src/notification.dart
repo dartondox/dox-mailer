@@ -49,6 +49,8 @@ abstract class Notification {
   /// reads it. Your own channels run at once.
   bool get shouldQueue => false;
 
+  // The next three are used only when [shouldQueue] is true.
+
   /// The queue name of a queued email. Null: the default queue.
   String? get queue => null;
 
@@ -68,7 +70,14 @@ abstract class Notification {
   ) async {
     List<NotificationError> errors = <NotificationError>[];
     for (Object notifiable in notifiables) {
-      for (NotificationChannel channel in notification.via(notifiable)) {
+      List<NotificationChannel> channels;
+      try {
+        channels = notification.via(notifiable);
+      } catch (error, stack) {
+        errors.add(NotificationError(notifiable, null, error, stack));
+        continue;
+      }
+      for (NotificationChannel channel in channels) {
         try {
           await channel.send(notifiable, notification);
         } catch (error, stack) {
@@ -90,7 +99,9 @@ class NotificationError {
   );
 
   final Object notifiable;
-  final NotificationChannel channel;
+
+  /// the channel that failed. Null: `via()` failed.
+  final NotificationChannel? channel;
   final Object error;
   final StackTrace stack;
 }
@@ -104,8 +115,14 @@ class NotificationException implements Exception {
 
   @override
   String toString() {
-    return 'NotificationException: ${errors.length} failed, '
-        'the first: ${errors.first.error}';
+    StringBuffer out = StringBuffer(
+      'NotificationException: ${errors.length} failed',
+    );
+    for (NotificationError e in errors) {
+      String channel = e.channel?.runtimeType.toString() ?? 'via()';
+      out.write('\n- ${e.notifiable} on $channel: ${e.error}');
+    }
+    return out.toString();
   }
 }
 
@@ -176,9 +193,18 @@ class MailChannel implements NotificationChannel {
         ? notifiable.routeNotificationFor('mail')
         : notifiable;
     return switch (route) {
-      Address address => <Address>[address],
-      String email => <Address>[Address.parse(email)],
-      List<Address> list => list,
+      List<Object?> list => <Address>[
+        for (Object? item in list) _address(notifiable, item),
+      ],
+      _ => <Address>[_address(notifiable, route)],
+    };
+  }
+
+  /// [item] of a mail route: an [Address] or an email text
+  static Address _address(Object notifiable, Object? item) {
+    return switch (item) {
+      Address address => address,
+      String email => Address.parse(email),
       _ => throw MailException(
         '${notifiable.runtimeType} has no mail address. Give it '
         'routeNotificationFor(\'mail\') or set `to` in toMail()',
