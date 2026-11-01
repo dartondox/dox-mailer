@@ -128,8 +128,40 @@ void main() {
     ]);
     await expectLater(
       allDown.send(_message(from: const Address('a@example.com'))),
-      throwsA(isA<MailException>()),
+      throwsA(
+        isA<FailoverException>()
+            .having((FailoverException e) => e.errors, 'errors', hasLength(2))
+            .having(
+              (FailoverException e) => e.message,
+              'message',
+              'every transport failed: MailException: down; '
+                  'MailException: down',
+            ),
+      ),
     );
+  });
+
+  test('FailoverTransport does not try a bad message', () async {
+    _Broken broken = _Broken();
+    ArrayTransport backup = ArrayTransport();
+    FailoverTransport failover = FailoverTransport(<Transport>[broken, backup]);
+    Message bad = Message(
+      from: const Address('a@example.com'),
+      to: <Address>[const Address('not an email')],
+      text: 'x',
+    );
+    await expectLater(
+      failover.send(bad),
+      throwsA(
+        isA<MailException>().having(
+          (MailException e) => e,
+          'type',
+          isNot(isA<FailoverException>()),
+        ),
+      ),
+    );
+    expect(broken.calls, 0);
+    expect(backup.sent, isEmpty);
   });
 
   test('MailProvider sets up Mail and closes the transports', () async {

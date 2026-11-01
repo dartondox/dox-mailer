@@ -322,7 +322,7 @@ Keeps each email in a list and sends nothing. See [Testing](#testing).
 
 ### Failover
 
-Tries each transport in order, until one sends the email.
+Tries each transport in order, until one sends the email. When every transport fails, it throws a `FailoverException`. Its `errors` list has the error of each transport. A bad message, eg. a bad address, throws a `MailException` at once and no transport tries it.
 
 ```dart
 SesV2Transport ses = SesV2Transport(key: '...', secret: '...');
