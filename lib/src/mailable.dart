@@ -200,22 +200,26 @@ class MailMessage extends Mailable {
     String? salutation = this.salutation;
     String button = _error ? 'button button-error' : 'button';
     return <String>[
-      if (greeting != null) html ? '**${_escapeTags(greeting)}**' : greeting,
+      if (greeting != null)
+        html ? _markdownHtml('**${_escapeTags(greeting)}**') : greeting,
       for (final (String text, String? url) in _items)
         switch ((html, url)) {
-          (true, null) => _escapeTags(text),
+          (true, null) => _markdownHtml(_escapeTags(text)),
           (false, null) => text,
+          // a button is HTML, not Markdown: the label is plain text, so
+          // a URL in it does not become a link inside the button
           (true, String url) =>
-            '<a href="${escapeHtml(url)}" class="$button">'
-                '${escapeHtml(text)}</a>',
+            '<p><a href="${escapeHtml(url)}" class="$button">'
+                '${escapeHtml(text)}</a></p>\n',
           (false, String url) => '$text: $url',
         },
-      if (salutation != null) html ? _escapeTags(salutation) : salutation,
+      if (salutation != null)
+        html ? _markdownHtml(_escapeTags(salutation)) : salutation,
     ];
   }
 
   @override
-  String get html => layout(_markdownHtml(_parts(true).join('\n\n')));
+  String get html => layout(_parts(true).join());
 
   @override
   String get text => _parts(false).join('\n\n');
@@ -247,18 +251,19 @@ void _dropUnsafeUrls(List<md.Node>? nodes) {
     for (String name in const <String>['href', 'src']) {
       String? value = node.attributes[name];
       if (value == null) continue;
-      // An autolink comes HTML-escaped, a `[x](url)` link comes decoded.
-      // Decode both the same way, check the URL, then escape it once:
-      // the renderer writes attributes as they are. So the browser gets
-      // exactly the URL that was checked, and `&#58;` can not turn into
-      // a `:` after the check.
-      String url = _decodeEntities(value);
-      if (_isSafeUrl(url)) {
+      // A `[x](url)` link comes decoded. An autolink comes escaped, and
+      // `{{ url }}` adds one more escape. Decode until nothing changes,
+      // check that URL, then escape it once: the renderer writes
+      // attributes as they are. So the browser gets exactly the URL
+      // that was checked, and `&#58;` can not turn into a `:` later.
+      String? url = _decodeAll(value);
+      if (url != null && _isSafeUrl(url)) {
         node.attributes[name] = escapeHtml(url);
       } else {
         node.attributes.remove(name);
       }
     }
+    _fixAutolinkText(node);
     _dropUnsafeUrls(node.children);
   }
 }
@@ -274,6 +279,37 @@ const Map<String, String> _named = <String, String>{
   'quot': '"',
   'apos': "'",
 };
+
+/// An autolink shows its URL as its text, escaped one or two times.
+/// Show it like the href: decoded, then escaped once.
+void _fixAutolinkText(md.Element link) {
+  List<md.Node>? children = link.children;
+  String? href = link.attributes['href'];
+  if (link.tag != 'a' || href == null || children == null) return;
+  if (children.length != 1 || children.single is! md.Text) return;
+  String? text = _decodeAll(children.single.textContent);
+  if (text == null) return;
+  String escaped = escapeHtml(text);
+  // href is escaped once now. `www.x` gets `http://`, `a@b.c` `mailto:`
+  for (String start in const <String>['', 'http://', 'https://', 'mailto:']) {
+    if ('${escapeHtml(start)}$escaped' == href) {
+      children[0] = md.Text(escaped);
+      return;
+    }
+  }
+}
+
+/// [value] decoded with [_decodeEntities] until it does not change.
+/// Null after 5 rounds: too deep to be a real URL.
+String? _decodeAll(String value) {
+  String current = value;
+  for (int round = 0; round < 5; round++) {
+    String next = _decodeEntities(current);
+    if (next == current) return current;
+    current = next;
+  }
+  return null;
+}
 
 /// [url] with HTML entities decoded once, eg. `&amp;` and `&#58;`.
 /// Other entities stay as text. That is safe: the result is checked

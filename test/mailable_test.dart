@@ -162,8 +162,12 @@ void main() {
       '[x](https://example.com/?c=3&d=4)\n\n'
       '[a](javascript&amp;#58;alert(1)) [b](javascript&#x3A;x) '
       '[c](javascript&colon;x) [d](&#106;avascript:x) '
-      '![e](data&#58;image/png;base64,xx) <javascript&#58;y>\n',
+      '![e](data&#58;image/png;base64,xx) <javascript&#58;y> '
+      '[f](javascript&amp;amp;amp;#58;x) '
+      '[g](javascript&amp;amp;amp;amp;amp;amp;amp;#58;x)\n',
     );
+    File('${views.path}/bare.dox.html')
+        .writeAsStringSync('{{ url }}\n\n<{{ url }}>\n\n{{ bad }}\n');
     View.configure(ViewConfig(path: views.path, cache: false));
   });
 
@@ -278,8 +282,54 @@ void main() {
       expect(html, contains('<a>b</a>'));
       expect(html, contains('<a>d</a>'));
       expect(html, contains('<img alt="e" />'));
+      expect(html, contains('<a>f</a>'));
+      expect(html, contains('<a>g</a>'));
       expect(html, contains('<a>c</a>'));
       expect(html, isNot(contains(RegExp('(href|src)="[^"]*(script|data):'))));
+    });
+  });
+
+  group('a bare {{ url }} with &', () {
+    test('the href and the text have & escaped once', () {
+      String html = _TemplateMail('bare', const <String, Object?>{
+        'url': 'https://example.com/reset?token=a1&email=ann@example.com',
+        // {{ }} escapes it once more: three levels in the href
+        'bad': '[z](javascript&amp;#58;x) www.example.com/?a=1&b=2',
+      }).toMessage().html!;
+      String link =
+          'https://example.com/reset?token=a1&amp;email=ann@example.com';
+      // a bare URL and <url>: the same link two times
+      expect(
+        RegExp(RegExp.escape('<a href="$link">$link</a>')).allMatches(html),
+        hasLength(2),
+      );
+      expect(
+        html,
+        contains(
+          '<a href="http://www.example.com/?a=1&amp;b=2">'
+          'www.example.com/?a=1&amp;b=2</a>',
+        ),
+      );
+      expect(html, isNot(contains('&amp;amp;')));
+      expect(html, contains('<a>z</a>'));
+    });
+
+    test('a URL in an action() label stays text', () {
+      String html =
+          (MailMessage()..action(
+                'Open https://example.com/?a=1&b=2',
+                'https://example.com',
+              ))
+              .toMessage()
+              .html!;
+      expect(
+        html,
+        contains(
+          '<a href="https://example.com" class="button">'
+          'Open https://example.com/?a=1&amp;b=2</a>',
+        ),
+      );
+      expect(html, isNot(contains('&amp;amp;')));
     });
   });
 
@@ -395,7 +445,10 @@ void main() {
       expect(bob.saved, hasLength(1));
       expect(
         '$e',
-        allOf(contains('1 failed'), contains('on MailChannel: MailException')),
+        allOf(
+          contains('1 failed'),
+          contains('- notifiable 0 (_User) on MailChannel: MailException'),
+        ),
       );
     });
 
@@ -421,8 +474,13 @@ void main() {
       }
       NotificationException e = thrown! as NotificationException;
       expect(e.errors.first.channel, isNull);
-      expect('$e', contains('- not a user on via(): Bad state: no channel'));
-      expect('$e', contains('- _User (Ann <ann@example.com>) on via()'));
+      expect('$e', contains('- notifiable 0 (String) on via(): StateError'));
+      expect('$e', contains('- notifiable 1 (_User) on via(): StateError'));
+      // no addresses and no error text in the log line
+      expect('$e', isNot(contains('example.com')));
+      expect('$e', isNot(contains('no channel')));
+      expect(e.errors[1].notifiable, isA<_User>());
+      expect('${e.errors[1].error}', contains('no channel'));
       expect(mail.messages.single.to.single.email, 'b@example.com');
     });
 
