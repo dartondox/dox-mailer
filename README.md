@@ -4,7 +4,9 @@ Send email from the [Dox](https://dartondox.dev) framework: SMTP, Amazon SES, Az
 
 You write a `Message` and call `Mail.send()`. A transport sends it. You pick the transport in a config file, so you can change providers with no code change.
 
-The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `http` and `crypto`.
+It also has mailables (one class per email, with dox_view or Markdown templates) and notifications (one message, sent on mail or your own channels).
+
+The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `dox_view`, `markdown`, `http` and `crypto`.
 
 ## Install
 

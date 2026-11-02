@@ -2,7 +2,7 @@
 
 You write a `Message` and call `Mail.send()`. A transport sends it. You pick the transport in a config file, so you can change providers with no code change.
 
-The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `http` and `crypto`.
+The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `dox_view`, `markdown`, `http` and `crypto`.
 
 ## Install
 
@@ -162,6 +162,268 @@ With [dox_view](https://pub.dev/packages/dox_view), render a template to HTML:
 String html = View.render('emails/welcome', <String, dynamic>{'name': 'Ann'});
 await Mail.send(Message(to: to, subject: 'Welcome', html: html));
 ```
+
+## Mailables
+
+A mailable is one kind of email in its own class, for example the welcome email. It keeps the address, the subject, the template and the data in one place. Override the getters you need:
+
+```dart
+class WelcomeMail extends Mailable {
+  WelcomeMail(this.user);
+
+  final User user;
+
+  @override
+  List<Address> get to => <Address>[Address(user.email, user.name)];
+
+  @override
+  String get subject => 'Welcome';
+
+  @override
+  String? get view => 'emails/welcome';
+
+  @override
+  Map<String, Object?> get data => <String, Object?>{'name': user.name};
+}
+```
+
+Then send it, or put it on the queue:
+
+```dart
+await WelcomeMail(user).send();
+await WelcomeMail(user).queue();
+await WelcomeMail(user).later(Duration(minutes: 10));
+```
+
+`queue()` and `later()` render the templates at once. The worker sends the finished email, so it needs no templates and no data. They take the same `queue` and `encrypt` options as `Mail.queue()`.
+
+| Getter | What it is |
+| --- | --- |
+| `to`, `cc`, `bcc`, `replyTo` | the addresses |
+| `from` | the sender. Null: the `from` of the mail config |
+| `subject` | the subject |
+| `html`, `text` | the body as text, when there is no template |
+| `view` | a [dox_view](https://pub.dev/packages/dox_view) template for the HTML body |
+| `textView` | a dox_view template for the plain text body |
+| `markdown` | a dox_view template with Markdown, see below |
+| `data` | the variables of the templates |
+| `attachments` | the files |
+| `mailer` | the mailer name, eg. `ses`. Null: the default mailer |
+
+`toMessage()` gives the email as a `Message`. To set more, like headers or tags, override it:
+
+```dart
+@override
+Message toMessage() {
+  return super.toMessage().copyWith(tags: <String>['welcome']);
+}
+```
+
+`{{ }}` in a template escapes HTML. For the plain text body of `textView` and `markdown`, the escape is undone, so `Tom & Jerry` stays `Tom & Jerry`.
+
+### Markdown mail
+
+Write the email in Markdown. You get a simple HTML email with a layout, and a plain text part, from one template. The Markdown is CommonMark with tables, like Laravel mail.
+
+`resources/views/emails/welcome.dox.html`:
+
+```markdown
+# Hi {{ name }}
+
+Thanks for joining. Here is what you can do next:
+
+- Fill in your profile
+- Invite your team
+
+[Open your profile]({{ profileUrl }})
+
+<a href="https://example.com/dashboard" class="button">Open the app</a>
+```
+
+```dart
+@override
+String? get markdown => 'emails/welcome';
+```
+
+- The HTML body is the Markdown as HTML, inside a white card on a grey page.
+- The text body is the Markdown itself.
+- `<a class="button">` shows as a button. In the text body it stays an `<a>` tag, so the link is still there.
+
+!!! warning "User data in Markdown"
+    `{{ }}` escapes HTML, but not Markdown. So a user's name like `[click](https://evil.example)` or `![x](https://evil.example/p.png)` becomes a normal link or image. Laravel works the same way.
+    Links and images with an unsafe URL, like `javascript:`, `vbscript:` or `data:`, lose their URL. Only `http`, `https`, `mailto`, `tel`, `cid` and relative URLs are kept.
+    The same goes for the lines of `MailMessage`. `MailMessage.action()` throws an `ArgumentError` for an unsafe URL.
+    Raw HTML in the template, like `<a href="{{ url }}">`, is not checked. In raw HTML, use only full URLs that your app builds. Email apps can not open a relative link like `/dashboard`.
+    For a URL, write `[text]({{ url }})` or `<{{ url }}>`. They go through the URL check, and the URL stays as it is, with `&` and `%XX`.
+    A bare URL does not become a link, like in Laravel. Most email apps make it a link anyway.
+    Entity text inside a URL is decoded. So `?q=&lt;b&gt;` reaches the browser as `?q=<b>`.
+
+!!! warning "Indent"
+    Markdown makes a line that starts with 4 spaces into a code block. So do not indent the Markdown inside `@if` or `@each`. Keep it at the start of the line.
+
+To use your own look, override `layout()`. It gets the HTML of the Markdown and returns the full page. Put it in a base class to use it for all your mailables:
+
+```dart
+import 'package:dox_mailer/dox_mailer.dart';
+import 'package:dox_view/dox_view.dart'; // View, SafeString
+
+abstract class AppMail extends Mailable {
+  @override
+  String layout(String body) {
+    return View.render('emails/layout', <String, Object?>{'body': SafeString(body)});
+  }
+}
+```
+
+### A simple email with no template
+
+`MailMessage` is a mailable made of lines and a button. It needs no template. It uses the Markdown layout.
+
+```dart
+await (MailMessage(subject: 'Invoice paid', to: <Address>[Address('ann@example.com')])
+      ..line('We got your payment.')
+      ..action('View invoice', 'https://example.com/invoices/1')
+      ..line('Thank you!'))
+    .send();
+```
+
+More options:
+
+- `cc:` in the constructor adds cc addresses.
+- `attach(Attachment(...))` adds a file.
+- `error()` makes the buttons red, for a message about a problem.
+
+The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML in a line shows as text. See "User data in Markdown" above.
+
+## Notifications
+
+A notification tells a user about something, like "your invoice is paid". It can go out on more than one channel: email, a database table, SMS. Each notification is a class. `via()` picks the channels.
+
+```dart
+class InvoicePaid extends Notification {
+  InvoicePaid(this.invoiceId);
+
+  final int invoiceId;
+
+  @override
+  List<NotificationChannel> via(Object notifiable) {
+    return <NotificationChannel>[const MailChannel()];
+  }
+
+  @override
+  Mailable toMail(Object notifiable) {
+    return MailMessage(subject: 'Invoice paid')
+      ..line('We got your payment.')
+      ..action('View invoice', 'https://example.com/invoices/$invoiceId');
+  }
+}
+```
+
+`toMail()` can return any mailable, so a `WelcomeMail` with a template works too.
+
+### Who gets it
+
+Add the `Notifiable` mixin to the class that gets notifications, usually the user model. `routeNotificationFor('mail')` gives the email address:
+
+```dart
+class User extends Model<User> with Notifiable {
+  @override
+  Object? routeNotificationFor(String channel) {
+    return channel == 'mail' ? Address(email!, name) : null;
+  }
+}
+```
+
+The route can be an `Address`, an email text like `Ann <ann@example.com>`, or a list of these.
+
+Then send:
+
+```dart
+await user.notify(InvoicePaid(1));
+
+// many users
+await Notification.send(users, InvoicePaid(1));
+
+// an address with no user
+await Notification.send(<Object>[Address('ann@example.com')], InvoicePaid(1));
+```
+
+When the mailable has its own `to` address, that address is used and the route is not.
+
+When a channel throws, the other channels and the other notifiables still get the notification. At the end, `Notification.send()` throws a `NotificationException`. Its `errors` list says which notifiable and channel failed, and why. When `via()` throws, the channel is null. The error text has one line per failure: the place and the type of the notifiable, the channel, and the error type. It has no email addresses and no error text, so it is safe for logs. For the details, read `errors`.
+
+With one notifiable and one error, like `user.notify()`, the error is thrown as it is. So `on MailException catch (e)` still works there.
+
+### Queue it
+
+Override `shouldQueue`. The mail channel then puts the email on the job queue, like `Mail.queue()`. This needs [dox_queue](https://pub.dev/packages/dox_queue).
+
+```dart
+@override
+bool get shouldQueue => true;
+```
+
+The email is rendered at once. The worker sends the finished email.
+
+These getters set the queue options. They work like the options of `Mail.queue()`:
+
+| Getter | Default | What it does |
+| --- | --- | --- |
+| `queue` | null (`default`) | the queue name |
+| `delay` | null | the worker sends the email after this wait |
+| `encrypt` | `false` | save the job data encrypted with the app key |
+
+When `shouldQueue` is false, the email is sent at once and these options do nothing. `shouldQueue` and these options only change the mail channel. Your own channels still run at once. To queue them, dispatch a job in the channel.
+
+### Your own channel
+
+Write a class that implements `NotificationChannel`. `toArray()` of the notification gives its data. For example, a channel that saves notifications in a table:
+
+```dart
+import 'dart:convert';
+
+class DatabaseChannel implements NotificationChannel {
+  @override
+  Future<void> send(Object notifiable, Notification notification) async {
+    // only a user has a row. An Address or an email text has none.
+    if (notifiable is! User) return;
+    AppNotification row = AppNotification()
+      ..userId = notifiable.id
+      ..data = jsonEncode(notification.toArray(notifiable));
+    await row.save();
+  }
+}
+```
+
+```dart
+class InvoicePaid extends Notification {
+  @override
+  List<NotificationChannel> via(Object notifiable) {
+    return <NotificationChannel>[const MailChannel(), DatabaseChannel()];
+  }
+
+  @override
+  Map<String, Object?> toArray(Object notifiable) {
+    return <String, Object?>{'type': 'invoice_paid', 'invoice_id': invoiceId};
+  }
+
+  // ...
+}
+```
+
+dox_mailer has no database channel of its own, so it does not need the ORM.
+
+### Test it
+
+`Mail.fake()` catches the emails of the mail channel too:
+
+```dart
+ArrayTransport mail = Mail.fake();
+await user.notify(InvoicePaid(1));
+expect(mail.messages.single.subject, 'Invoice paid');
+```
+
+With `shouldQueue`, the email goes to the job queue, not to the fake. In the test, use the `sync` queue driver too (`Queue.configure(QueueConfig())`). Then the email reaches the fake at once.
 
 ## Queue an email
 
