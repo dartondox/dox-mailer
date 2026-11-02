@@ -443,6 +443,27 @@ void main() {
 
 `Mail.fake()` works with or without a config. Call it after the app has started, because `MailProvider` sets up the config again at start.
 
+The fake has check methods. Each one throws a `StateError` when the check fails. The error text lists the subject and the to addresses of each email, so you see what was there.
+
+```dart
+mail.assertSent((Message m) => m.subject == 'Welcome');
+mail.assertSentCount(1);
+mail.assertNotSent((Message m) => m.to.any((Address a) => a.email == 'bob@example.com'));
+mail.assertNothingQueued();
+```
+
+| Method | It checks that |
+| --- | --- |
+| `assertSent([test])` | an email was sent. With `test`, an email that `test` says yes to |
+| `assertSentCount(count, [test])` | `count` emails were sent. With `test`, `count` emails that `test` says yes to |
+| `assertNotSent(test)` | no email that `test` says yes to was sent |
+| `assertNothingSent()` | no email was sent |
+| `assertQueued([test])` | an email was queued. With `test`, an email that `test` says yes to |
+| `assertNotQueued(test)` | no email that `test` says yes to was queued |
+| `assertNothingQueued()` | no email was queued |
+
+`test` gets the `Message`. For the delay or the queue name of a queued email, read `mail.queued`.
+
 `mail.clear()` forgets the sent and the queued emails.
 
 ## Integration tests
