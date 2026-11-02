@@ -123,24 +123,6 @@ class _InvoicePaid extends Notification {
   }
 }
 
-class _FakeQueue implements MailQueue {
-  final List<Message> pushed = <Message>[];
-  final List<String> options = <String>[];
-
-  @override
-  Future<String> push(
-    String mailer,
-    Message message, {
-    Duration? delay,
-    String? queue,
-    bool encrypt = false,
-  }) async {
-    pushed.add(message);
-    options.add('$delay $queue $encrypt');
-    return 'job-${pushed.length}';
-  }
-}
-
 void main() {
   late ArrayTransport mail;
   late Directory views;
@@ -218,12 +200,11 @@ void main() {
     });
 
     test('queue() puts the rendered email on the queue', () async {
-      _FakeQueue queue = _FakeQueue();
-      Mail.useQueue(queue);
       String id = await _WelcomeMail('Ann', template: 'markdown').queue();
-      expect(id, 'job-1');
-      expect(queue.pushed.single.html, contains('<h1>Hi Ann</h1>'));
-      expect(queue.pushed.single.from!.email, 'app@example.com');
+      expect(id, 'array-job-1');
+      Message queued = mail.queued.single.message;
+      expect(queued.html, contains('<h1>Hi Ann</h1>'));
+      expect(queued.from!.email, 'app@example.com');
       expect(mail.messages, isEmpty);
     });
   });
@@ -438,16 +419,14 @@ void main() {
     });
 
     test('shouldQueue puts the email on the queue', () async {
-      _FakeQueue queue = _FakeQueue();
-      Mail.useQueue(queue);
       await _User('ann@example.com').notify(_InvoicePaid(queued: true));
       await _User('bob@example.com')
           .notify(_InvoicePaid(queued: true, wait: const Duration(minutes: 5)));
-      expect(queue.pushed.first.to.single.email, 'ann@example.com');
-      expect(queue.options, <String>[
-        'null mail false',
-        '0:05:00.000000 mail false',
-      ]);
+      expect(mail.queued.first.message.to.single.email, 'ann@example.com');
+      expect(
+        mail.queued.map((QueuedMessage q) => '${q.delay} ${q.queue}'),
+        <String>['null mail', '0:05:00.000000 mail'],
+      );
       expect(mail.messages, isEmpty);
     });
 

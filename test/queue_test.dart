@@ -79,7 +79,10 @@ void main() {
     Mail.useQueue(queue);
   });
 
-  tearDown(() => Mail.useQueue(null));
+  tearDown(() {
+    Mail.restore();
+    Mail.useQueue(null);
+  });
 
   test('a message is the same after toJson, JSON text and fromJson', () {
     Message message = _full();
@@ -173,5 +176,49 @@ void main() {
   test('with no queue, Mail.queue is a StateError', () async {
     Mail.useQueue(null);
     await expectLater(Mail.queue(_full()), throwsStateError);
+  });
+
+  group('Mail.fake', () {
+    test('keeps queued mail and pushes no job', () async {
+      ArrayTransport fake = Mail.fake();
+      String id = await Mail.queue(_full(), queue: 'emails', encrypt: true);
+      await Mail.mailer('other').later(const Duration(minutes: 5), _full());
+      expect(id, 'array-job-1');
+      expect(queue.pushed, isEmpty);
+      expect(fake.sent, isEmpty);
+      QueuedMessage first = fake.queued.first;
+      expect(first.mailer, 'main');
+      expect(first.queue, 'emails');
+      expect(first.encrypt, isTrue);
+      expect(first.delay, isNull);
+      expect(first.message.subject, 'Your invoice');
+      QueuedMessage second = fake.queued.last;
+      expect(second.mailer, 'other');
+      expect(second.delay, const Duration(minutes: 5));
+    });
+
+    test('works with no job queue', () async {
+      Mail.useQueue(null);
+      ArrayTransport fake = Mail.fake();
+      await Mail.queue(_full());
+      await Mail.later(const Duration(seconds: 1), _full());
+      expect(fake.queued, hasLength(2));
+    });
+
+    test('still checks the message', () async {
+      ArrayTransport fake = Mail.fake();
+      await expectLater(
+        Mail.queue(Message(subject: 'x', text: 'x')),
+        throwsA(isA<MailException>()),
+      );
+      expect(fake.queued, isEmpty);
+    });
+
+    test('restore uses the real queue again', () async {
+      Mail.fake();
+      Mail.restore();
+      await Mail.queue(_full());
+      expect(queue.pushed, hasLength(1));
+    });
   });
 }
