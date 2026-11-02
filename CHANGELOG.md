@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Fix: the `assertSentCount` error said "Expected 1 sent emails". Now it says "Expected 1 sent email".
+- Docs: with both `Mail.fake()` and `Queue.fake()` on, `Mail.fake()` catches queued emails first.
+- Fix: `Attachment.fromFile` read the file with a blocking call, which stops the server for every other request while it reads. Now the file is read without blocking when the message is sent or queued. A missing file now throws its `FileSystemException` from `send()` (or `queue()`), not from `fromFile`. Reading `bytes` before that still works: it reads the file then.
 - New: check methods on the `ArrayTransport` of `Mail.fake()`: `assertSent`, `assertSentCount`, `assertNotSent`, `assertNothingSent`, `assertQueued`, `assertNotQueued` and `assertNothingQueued`. Each one can take a test function that gets the `Message`. A failed check throws a `StateError` that lists the emails.
 - New: `Mail.fake()` catches `Mail.queue()` and `Mail.later()` too, also the `queue()` and `later()` of mailables and queued notifications. The email goes to the new `queued` list of the `ArrayTransport`, as a `QueuedMessage` with the mailer name, the delay, the queue name and `encrypt`. No job is pushed, so a test needs no queue.
 - New: mailables. A `Mailable` is one kind of email in its own class: `to`, `subject`, `view`, `data`, `attachments` and more. Send it with `send()`, or put it on the queue with `queue()` and `later()`. The body can come from a dox_view template (`view`, `textView`) or from plain text (`html`, `text`).

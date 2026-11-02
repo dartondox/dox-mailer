@@ -224,6 +224,8 @@ expect(mail.sent, isEmpty);
 
 Each `QueuedMessage` has the `message`, the `mailer` name, the job `id`, the `delay`, the `queue` name and `encrypt`.
 
+With both `Mail.fake()` and `Queue.fake()` (dox_queue) on, `Mail.fake()` catches the queued email first. It goes to `mail.queued`, and `Queue.fake()` does not see a job. To check the mail job with `Queue.fake()`, do not call `Mail.fake()`.
+
 ## Transports
 
 ### SMTP

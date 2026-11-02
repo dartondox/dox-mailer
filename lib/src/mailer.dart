@@ -1,4 +1,5 @@
 import 'address.dart';
+import 'attachment.dart';
 import 'mail.dart';
 import 'message.dart';
 import 'transport.dart';
@@ -22,7 +23,7 @@ class Mailer {
   /// the one of the config. Throws a `MailException` when the message is
   /// not complete or the provider says no.
   Future<SentMessage> send(Message message) async {
-    return transport.send(_complete(message));
+    return transport.send(await _complete(message));
   }
 
   /// Puts [message] on the job queue. A queue worker sends it later with
@@ -42,7 +43,7 @@ class Mailer {
   }) async {
     return Mail.mailQueue.push(
       name,
-      _complete(message),
+      await _complete(message),
       queue: queue,
       encrypt: encrypt,
     );
@@ -57,20 +58,24 @@ class Mailer {
   }) async {
     return Mail.mailQueue.push(
       name,
-      _complete(message),
+      await _complete(message),
       delay: delay,
       queue: queue,
       encrypt: encrypt,
     );
   }
 
-  /// [message] with the default from and reply-to, checked
-  Message _complete(Message message) {
+  /// [message] with the default from and reply-to, checked, with the
+  /// files of its attachments read
+  Future<Message> _complete(Message message) async {
     Message full = message.copyWith(
       from: message.from ?? from,
       replyTo: message.replyTo.isEmpty ? replyTo : null,
     );
     full.check();
+    for (Attachment file in full.attachments) {
+      await file.load();
+    }
     return full;
   }
 }

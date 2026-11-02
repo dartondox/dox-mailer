@@ -11,10 +11,17 @@ import 'dart:typed_data';
 /// `<img src="cid:logo">`.
 class Attachment {
   Attachment(List<int> bytes, this.filename, {String? contentType, this.cid})
-    : bytes = Uint8List.fromList(bytes),
+    : _bytes = Uint8List.fromList(bytes),
+      _path = null,
       contentType = contentType ?? contentTypeOf(filename);
 
-  /// Reads the file at [path]. The file name is the last part of the path.
+  Attachment._file(this._path, this.filename, {String? contentType, this.cid})
+    : contentType = contentType ?? contentTypeOf(filename);
+
+  /// The file at [path]. The file name is the last part of the path.
+  ///
+  /// The file is read when the message is sent or queued, without
+  /// blocking. A missing file throws a `FileSystemException` then.
   factory Attachment.fromFile(
     String path, {
     String? filename,
@@ -22,12 +29,7 @@ class Attachment {
     String? cid,
   }) {
     String name = filename ?? path.split(RegExp(r'[/\\]')).last;
-    return Attachment(
-      File(path).readAsBytesSync(),
-      name,
-      contentType: contentType,
-      cid: cid,
-    );
+    return Attachment._file(path, name, contentType: contentType, cid: cid);
   }
 
   /// Reads the map of [toJson].
@@ -40,7 +42,21 @@ class Attachment {
     );
   }
 
-  final Uint8List bytes;
+  Uint8List? _bytes;
+  final String? _path;
+
+  /// The bytes of the file. For [Attachment.fromFile], the file is read
+  /// here when [load] did not read it yet (`Mail` calls [load]).
+  Uint8List get bytes => _bytes ??= File(_path!).readAsBytesSync();
+
+  /// Read the file of [Attachment.fromFile], without blocking. `Mail`
+  /// calls it before it sends or queues a message. It does nothing when
+  /// the bytes are already there.
+  Future<void> load() async {
+    String? path = _path;
+    if (_bytes == null && path != null) _bytes = await File(path).readAsBytes();
+  }
+
   final String filename;
   final String contentType;
 
