@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dox_mailer/dox_mailer.dart';
 import 'package:test/test.dart';
 
@@ -106,6 +108,24 @@ void main() {
       throwsA(isA<MailException>()),
     );
     expect(main.sent, isEmpty);
+  });
+
+  test('Attachment.fromFile reads the file when the message is sent', () async {
+    Directory dir = await Directory.systemTemp.createTemp('dox_mailer_');
+    addTearDown(() => dir.delete(recursive: true));
+    String path = '${dir.path}/terms.pdf';
+    // no file yet: fromFile does not read it
+    Attachment file = Attachment.fromFile(path);
+    expect(file.filename, 'terms.pdf');
+    expect(file.contentType, 'application/pdf');
+    Message message = _message().copyWith(attachments: <Attachment>[file]);
+    await expectLater(Mail.send(message), throwsA(isA<FileSystemException>()));
+
+    await File(path).writeAsBytes(<int>[1, 2, 3]);
+    await Mail.send(message);
+    expect(main.messages.single.attachments.single.bytes, <int>[1, 2, 3]);
+    // read without send too
+    expect(Attachment.fromFile(path).bytes, <int>[1, 2, 3]);
   });
 
   test('Mail.fake catches every mailer', () async {
