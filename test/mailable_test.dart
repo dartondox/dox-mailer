@@ -158,7 +158,7 @@ void main() {
       '[rel](/x?y=a:b) ![logo](cid:logo)\n',
     );
     File('${views.path}/raw.dox.html').writeAsStringSync(
-      'https://example.com/?a=1&b=2\n\n'
+      '<https://example.com/?a=1&b=2>\n\n'
       '[x](https://example.com/?c=3&d=4)\n\n'
       '[a](javascript&amp;#58;alert(1)) [b](javascript&#x3A;x) '
       '[c](javascript&colon;x) [d](&#106;avascript:x) '
@@ -166,8 +166,9 @@ void main() {
       '[f](javascript&amp;amp;amp;#58;x) '
       '[g](javascript&amp;amp;amp;amp;amp;amp;amp;#58;x)\n',
     );
-    File('${views.path}/bare.dox.html')
-        .writeAsStringSync('{{ url }}\n\n<{{ url }}>\n\n{{ bad }}\n');
+    File('${views.path}/bare.dox.html').writeAsStringSync(
+      '[link]({{ url }})\n\n<{{ url }}>\n\n{{ url }}\n\n{{ bad }}\n',
+    );
     View.configure(ViewConfig(path: views.path, cache: false));
   });
 
@@ -258,10 +259,10 @@ void main() {
   });
 
   group('links with &', () {
-    test('a bare URL and a [x](url) link escape & once', () {
+    test('<url> and [x](url) in a line escape & once', () {
       String html =
           (MailMessage()
-                ..line('https://example.com/?a=1&b=2')
+                ..line('<https://example.com/?a=1&b=2>')
                 ..line('[x](https://example.com/?c=3&d=4)'))
               .toMessage()
               .html!;
@@ -289,29 +290,38 @@ void main() {
     });
   });
 
-  group('a bare {{ url }} with &', () {
-    test('the href and the text have & escaped once', () {
+  group('{{ url }} with & and %XX', () {
+    test('[x]({{ url }}) and <{{ url }}> keep the URL, a bare one is text', () {
+      const String url =
+          'https://example.com/reset?token=a%2Bb%3D&email=ann%40x.io'
+          '&next=%2Fa%20b%26c#f';
       String html = _TemplateMail('bare', const <String, Object?>{
-        'url': 'https://example.com/reset?token=a1&email=ann@example.com',
+        'url': url,
         // {{ }} escapes it once more: three levels in the href
         'bad': '[z](javascript&amp;#58;x) www.example.com/?a=1&b=2',
       }).toMessage().html!;
-      String link =
-          'https://example.com/reset?token=a1&amp;email=ann@example.com';
-      // a bare URL and <url>: the same link two times
-      expect(
-        RegExp(RegExp.escape('<a href="$link">$link</a>')).allMatches(html),
-        hasLength(2),
-      );
-      expect(
-        html,
-        contains(
-          '<a href="http://www.example.com/?a=1&amp;b=2">'
-          'www.example.com/?a=1&amp;b=2</a>',
-        ),
-      );
+      // the input URL, byte for byte, escaped once
+      String escaped = url.replaceAll('&', '&amp;');
+      expect(html, contains('<a href="$escaped">link</a>'));
+      expect(html, contains('<a href="$escaped">$escaped</a>'));
+      // a bare URL is no link: plain text
+      expect(html, contains('<p>$escaped</p>'));
+      expect(html, contains('www.example.com/?a=1&amp;b=2</p>'));
+      expect(html, isNot(contains('http://www.')));
+      expect(html, isNot(contains('%25')));
       expect(html, isNot(contains('&amp;amp;')));
       expect(html, contains('<a>z</a>'));
+    });
+
+    test('a bare URL in a line is no link', () {
+      String html = (MailMessage(
+        greeting: null,
+      )..line('Go to https://example.com/?a=1&b=2%26')).toMessage().html!;
+      expect(
+        html,
+        contains('<p>Go to https://example.com/?a=1&amp;b=2%26</p>'),
+      );
+      expect(html, isNot(contains('<a ')));
     });
 
     test('a URL in an action() label stays text', () {
@@ -334,6 +344,20 @@ void main() {
   });
 
   group('MailMessage', () {
+    test('raw HTML is text, code spans and a 2-line greeting look right', () {
+      String html =
+          (MailMessage(greeting: 'Hi\n\nAnn', salutation: '`<b>`')
+                ..line('Use `<br>` and <b>x</b> <a href="javascript:x">y</a>'))
+              .toMessage()
+              .html!;
+      expect(html, contains('<p><strong>Hi Ann</strong></p>'));
+      expect(html, contains('<code>&lt;br&gt;</code>'));
+      expect(html, contains('<code>&lt;b&gt;</code>'));
+      expect(html, contains('&lt;b&gt;x&lt;/b&gt;'));
+      expect(html, isNot(contains('<a href')));
+      expect(html, isNot(contains('&amp;lt;')));
+    });
+
     test('cc, attach() and error()', () {
       Message message =
           (MailMessage(cc: <Address>[const Address('c@x.io')])

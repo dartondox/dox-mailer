@@ -223,7 +223,7 @@ Message toMessage() {
 
 ### Markdown mail
 
-Write the email in Markdown. You get a simple HTML email with a layout, and a plain text part, from one template.
+Write the email in Markdown. You get a simple HTML email with a layout, and a plain text part, from one template. The Markdown is CommonMark with tables, like Laravel mail.
 
 `resources/views/emails/welcome.dox.html`:
 
@@ -254,7 +254,9 @@ String? get markdown => 'emails/welcome';
     Links and images with an unsafe URL, like `javascript:`, `vbscript:` or `data:`, lose their URL. Only `http`, `https`, `mailto`, `tel`, `cid` and relative URLs are kept.
     The same goes for the lines of `MailMessage`. `MailMessage.action()` throws an `ArgumentError` for an unsafe URL.
     Raw HTML in the template, like `<a href="{{ url }}">`, is not checked. In raw HTML, use only full URLs that your app builds. Email apps can not open a relative link like `/dashboard`.
-    For a URL in `{{ }}`, use a Markdown link `[text]({{ url }})`, `<{{ url }}>`, or a bare `{{ url }}`. They all go through the URL check, and a `&` in the URL works.
+    For a URL, write `[text]({{ url }})` or `<{{ url }}>`. They go through the URL check, and the URL stays as it is, with `&` and `%XX`.
+    A bare URL does not become a link, like in Laravel. Most email apps make it a link anyway.
+    Entity text inside a URL is decoded. So `?q=&lt;b&gt;` reaches the browser as `?q=<b>`.
 
 !!! warning "Indent"
     Markdown makes a line that starts with 4 spaces into a code block. So do not indent the Markdown inside `@if` or `@each`. Keep it at the start of the line.
@@ -291,7 +293,7 @@ More options:
 - `attach(Attachment(...))` adds a file.
 - `error()` makes the buttons red, for a message about a problem.
 
-The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML tags in a line are escaped. See "User data in Markdown" above.
+The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML in a line shows as text. See "User data in Markdown" above.
 
 ## Notifications
 
@@ -378,6 +380,8 @@ When `shouldQueue` is false, the email is sent at once and these options do noth
 Write a class that implements `NotificationChannel`. `toArray()` of the notification gives its data. For example, a channel that saves notifications in a table:
 
 ```dart
+import 'dart:convert';
+
 class DatabaseChannel implements NotificationChannel {
   @override
   Future<void> send(Object notifiable, Notification notification) async {
@@ -418,6 +422,8 @@ ArrayTransport mail = Mail.fake();
 await user.notify(InvoicePaid(1));
 expect(mail.messages.single.subject, 'Invoice paid');
 ```
+
+With `shouldQueue`, the email goes to the job queue, not to the fake. In the test, use the `sync` queue driver too (`Queue.configure(QueueConfig())`). Then the email reaches the fake at once.
 
 ## Queue an email
 

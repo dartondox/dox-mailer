@@ -129,8 +129,8 @@ abstract class Mailable {
 ///   ..action('View invoice', 'https://example.com/invoices/1')
 ///   ..line('Thank you!');
 /// ```
-/// Lines can use Markdown, like `**bold**`. HTML tags in them are
-/// escaped. Links in them go through the same URL check as templates.
+/// Lines can use Markdown, like `**bold**`. HTML in them shows as
+/// text. Links in them go through the same URL check as templates.
 class MailMessage extends Mailable {
   MailMessage({
     this.subject = '',
@@ -201,10 +201,12 @@ class MailMessage extends Mailable {
     String button = _error ? 'button button-error' : 'button';
     return <String>[
       if (greeting != null)
-        html ? _markdownHtml('**${_escapeTags(greeting)}**') : greeting,
+        html
+            ? _markdownHtml('**${_oneLine(greeting)}**', html: false)
+            : greeting,
       for (final (String text, String? url) in _items)
         switch ((html, url)) {
-          (true, null) => _markdownHtml(_escapeTags(text)),
+          (true, null) => _markdownHtml(text, html: false),
           (false, null) => text,
           // a button is HTML, not Markdown: the label is plain text, so
           // a URL in it does not become a link inside the button
@@ -214,7 +216,7 @@ class MailMessage extends Mailable {
           (false, String url) => '$text: $url',
         },
       if (salutation != null)
-        html ? _markdownHtml(_escapeTags(salutation)) : salutation,
+        html ? _markdownHtml(salutation, html: false) : salutation,
     ];
   }
 
@@ -228,13 +230,41 @@ class MailMessage extends Mailable {
 /// [markdown] as HTML, with GitHub tables and lists. Links and images
 /// with an unsafe scheme, like `javascript:` or `data:`, lose their URL.
 /// Laravel does the same (`allow_unsafe_links` is off).
-String _markdownHtml(String markdown) {
+///
+/// It is CommonMark with tables, like Laravel mail. There are no GFM
+/// autolinks: a bare URL stays text. Write `<url>` or `[text](url)`.
+///
+/// With [html] false, raw HTML shows as text, eg. for `MailMessage`
+/// lines. Code spans still show `<br>` right.
+String _markdownHtml(String markdown, {bool html = true}) {
   List<md.Node> nodes = md.Document(
-    extensionSet: md.ExtensionSet.gitHubFlavored,
+    extensionSet: md.ExtensionSet.commonMark,
+    blockSyntaxes: const <md.BlockSyntax>[md.TableSyntax()],
   ).parse(markdown);
+  if (!html) _escapeRawHtml(nodes);
   _dropUnsafeUrls(nodes);
   return '${md.renderToHtml(nodes)}\n';
 }
+
+/// Shows raw HTML as text. package:markdown escapes `<` and `>` in
+/// normal text and in code, so a text node with a `<` or a `>` is raw
+/// HTML.
+void _escapeRawHtml(List<md.Node>? nodes) {
+  if (nodes == null) return;
+  for (int i = 0; i < nodes.length; i++) {
+    md.Node node = nodes[i];
+    if (node is md.Element) {
+      _escapeRawHtml(node.children);
+    } else if (node is md.Text && node.text.contains(RegExp('[<>]'))) {
+      nodes[i] = md.Text(
+        node.text.replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
+      );
+    }
+  }
+}
+
+/// [text] on one line, so `**text**` stays one bold run
+String _oneLine(String text) => text.replaceAll(RegExp(r'\s*\n\s*'), ' ');
 
 /// the schemes a link or an image of a Markdown email may use
 const Set<String> _safeSchemes = <String>{
@@ -280,8 +310,8 @@ const Map<String, String> _named = <String, String>{
   'apos': "'",
 };
 
-/// An autolink shows its URL as its text, escaped one or two times.
-/// Show it like the href: decoded, then escaped once.
+/// An autolink `<url>` shows its URL as its text, escaped one or two
+/// times. Show it like the href: decoded, then escaped once.
 void _fixAutolinkText(md.Element link) {
   List<md.Node>? children = link.children;
   String? href = link.attributes['href'];
@@ -290,8 +320,8 @@ void _fixAutolinkText(md.Element link) {
   String? text = _decodeAll(children.single.textContent);
   if (text == null) return;
   String escaped = escapeHtml(text);
-  // href is escaped once now. `www.x` gets `http://`, `a@b.c` `mailto:`
-  for (String start in const <String>['', 'http://', 'https://', 'mailto:']) {
+  // href is escaped once now. `<a@b.c>` gets `mailto:`
+  for (String start in const <String>['', 'mailto:']) {
     if ('${escapeHtml(start)}$escaped' == href) {
       children[0] = md.Text(escaped);
       return;
@@ -369,13 +399,6 @@ $body
 </div></body>
 </html>
 ''';
-}
-
-/// [text] with `<` and `>` escaped, so a line can not make an HTML tag.
-/// `&` stays: Markdown shows a lone `&` as text, and an autolink with
-/// an escaped `&` would get it escaped twice.
-String _escapeTags(String text) {
-  return text.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
 /// undo `escapeHtml`, for the text body of a template
