@@ -96,7 +96,11 @@ class ArrayTransport extends Transport implements MailQueue {
     int found = _count(messages, test);
     if (found != count) {
       throw StateError(
-        _text('Expected $count sent emails, found $found', messages),
+        _text(
+          'Expected $count sent ${count == 1 ? 'email' : 'emails'}, '
+          'found $found',
+          messages,
+        ),
       );
     }
   }

@@ -366,7 +366,7 @@ void fakeAssertTests() {
       );
       _fails(
         () => mail.assertSentCount(1),
-        startsWith('Expected 1 sent emails, found 2'),
+        startsWith('Expected 1 sent email, found 2'),
       );
       _fails(
         () => mail.assertNotSent(_isHi),
