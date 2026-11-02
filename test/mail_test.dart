@@ -57,6 +57,8 @@ Message _message({Address? from}) => Message(
 );
 
 void main() {
+  fakeAssertTests();
+
   late ArrayTransport main;
   late ArrayTransport other;
 
@@ -287,5 +289,90 @@ void main() {
     expect(transport.sent, hasLength(1));
     await service.shutdown();
     expect(transport.closed, isTrue);
+  });
+}
+
+void _fails(void Function() check, Object text) {
+  expect(
+    check,
+    throwsA(
+      isA<StateError>().having((StateError e) => e.message, 'message', text),
+    ),
+  );
+}
+
+bool _isHi(Message m) => m.subject == 'Hi';
+bool _isBye(Message m) => m.subject == 'Bye';
+
+void fakeAssertTests() {
+  group('ArrayTransport asserts', () {
+    late ArrayTransport mail;
+
+    setUp(() {
+      Mail.configure(MailConfig(from: const Address('app@example.com')));
+      mail = Mail.fake();
+    });
+
+    tearDown(Mail.restore);
+
+    test('with nothing sent or queued', () {
+      mail.assertNothingSent();
+      mail.assertNothingQueued();
+      mail.assertSentCount(0);
+      mail.assertNotSent(_isHi);
+      mail.assertNotQueued(_isHi);
+      _fails(
+        mail.assertSent,
+        'No matching email was sent. There are no emails.',
+      );
+      _fails(mail.assertQueued, startsWith('No matching email was queued'));
+    });
+
+    test('sent mail', () async {
+      await Mail.send(_message());
+      await Mail.send(_message());
+      mail.assertSent();
+      mail.assertSent(_isHi);
+      mail.assertSentCount(2);
+      mail.assertSentCount(2, _isHi);
+      mail.assertSentCount(0, _isBye);
+      mail.assertNotSent(_isBye);
+      mail.assertNothingQueued();
+      _fails(
+        () => mail.assertSent(_isBye),
+        'No matching email was sent. The emails:\n'
+        '- "Hi" to ann@example.com\n'
+        '- "Hi" to ann@example.com',
+      );
+      _fails(
+        () => mail.assertSentCount(1),
+        startsWith('Expected 1 sent emails, found 2'),
+      );
+      _fails(
+        () => mail.assertNotSent(_isHi),
+        startsWith('Expected no matching sent email, found 2'),
+      );
+      _fails(mail.assertNothingSent, startsWith('No email should be sent'));
+    });
+
+    test('queued mail', () async {
+      await Mail.queue(_message());
+      await Mail.later(const Duration(minutes: 1), _message());
+      mail.assertQueued();
+      mail.assertQueued(_isHi);
+      mail.assertNotQueued(_isBye);
+      mail.assertNothingSent();
+      _fails(
+        () => mail.assertQueued(_isBye),
+        contains('"Hi" to ann@example.com'),
+      );
+      _fails(
+        () => mail.assertNotQueued(_isHi),
+        startsWith('Expected no matching queued email, found 2'),
+      );
+      _fails(mail.assertNothingQueued, startsWith('No email should be queued'));
+      mail.clear();
+      mail.assertNothingQueued();
+    });
   });
 }

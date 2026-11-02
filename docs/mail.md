@@ -423,7 +423,7 @@ await user.notify(InvoicePaid(1));
 expect(mail.messages.single.subject, 'Invoice paid');
 ```
 
-With `shouldQueue`, the email goes to the job queue, not to the fake. In the test, use the `sync` queue driver too (`Queue.configure(QueueConfig())`). Then the email reaches the fake at once.
+With `shouldQueue`, the email goes to `mail.queued`, not to `mail.sent`.
 
 ## Queue an email
 
@@ -464,16 +464,17 @@ await Mail.mailer('ses').queue(message, queue: 'emails');
 !!! tip "Encrypt personal data"
     An email has personal data. When other people can read Redis or the `jobs` table, use `encrypt: true`.
 
-In tests, use `Mail.fake()` with the `sync` queue driver. A queued email then goes to the fake at once.
-Without a queue, `Mail.queue()` throws. So set up the queue in the test:
+In tests, `Mail.fake()` catches queued emails too. They go to `mail.queued`, not to a job queue. So the test needs no queue:
 
 ```dart
 ArrayTransport mail = Mail.fake();
-Queue.configure(QueueConfig()); // the sync driver
 
-await Mail.queue(message);
-expect(mail.sent, hasLength(1));
+await Mail.later(Duration(minutes: 10), message);
+expect(mail.queued.single.delay, Duration(minutes: 10));
+expect(mail.sent, isEmpty);
 ```
+
+Each `QueuedMessage` has the `message`, the `mailer` name, the job `id`, the `delay`, the `queue` name and `encrypt`.
 
 ## Transports
 
@@ -694,7 +695,28 @@ void main() {
 
 `Mail.fake()` works with or without a config. Call it after the app has started, because `MailProvider` sets up the config again at start.
 
-`mail.clear()` forgets the sent emails.
+The fake has check methods. Each one throws a `StateError` when the check fails. The error text lists the subject and the to addresses of each email, so you see what was there.
+
+```dart
+mail.assertSent((Message m) => m.subject == 'Welcome');
+mail.assertSentCount(1);
+mail.assertNotSent((Message m) => m.to.any((Address a) => a.email == 'bob@example.com'));
+mail.assertNothingQueued();
+```
+
+| Method | It checks that |
+| --- | --- |
+| `assertSent([test])` | an email was sent. With `test`, an email that `test` says yes to |
+| `assertSentCount(count, [test])` | `count` emails were sent. With `test`, `count` emails that `test` says yes to |
+| `assertNotSent(test)` | no email that `test` says yes to was sent |
+| `assertNothingSent()` | no email was sent |
+| `assertQueued([test])` | an email was queued. With `test`, an email that `test` says yes to |
+| `assertNotQueued(test)` | no email that `test` says yes to was queued |
+| `assertNothingQueued()` | no email was queued |
+
+`test` gets the `Message`. For the delay or the queue name of a queued email, read `mail.queued`.
+
+`mail.clear()` forgets the sent and the queued emails.
 
 ## Your own transport
 

@@ -69,9 +69,11 @@ class Mail {
     _queue = queue;
   }
 
-  /// the queue of [useQueue]. Throws a [StateError] when there is none.
+  /// The queue of [useQueue]. While [fake] is on, it is the fake, so
+  /// queued messages go to `ArrayTransport.queued`. Throws a
+  /// [StateError] when there is none.
   static MailQueue get mailQueue {
-    MailQueue? value = _queue;
+    MailQueue? value = _fake ?? _queue;
     if (value == null) {
       throw StateError(
         'Mail.queue() needs a job queue. Add the dox_queue package and a '
@@ -100,7 +102,8 @@ class Mail {
   }
 
   /// Every mailer sends to one [ArrayTransport], so a test can check the
-  /// sent messages. Sets up an empty config when there is none.
+  /// sent messages. [queue] and [later] put the message in its `queued`
+  /// list, with no job queue. Sets up an empty config when there is none.
   /// [restore] undoes it.
   /// ```
   /// ArrayTransport mail = Mail.fake();
