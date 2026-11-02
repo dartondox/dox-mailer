@@ -64,12 +64,16 @@ abstract class Notification {
   ///
   /// When a channel throws, the other channels and notifiables still
   /// get it. At the end, a [NotificationException] lists every error.
+  /// With one notifiable and one error, that error is thrown as it is,
+  /// so `on MailException` still works for `user.notify()`.
   static Future<void> send(
     Iterable<Object> notifiables,
     Notification notification,
   ) async {
     List<NotificationError> errors = <NotificationError>[];
+    int count = 0;
     for (Object notifiable in notifiables) {
+      count++;
       List<NotificationChannel> channels;
       try {
         channels = notification.via(notifiable);
@@ -84,6 +88,9 @@ abstract class Notification {
           errors.add(NotificationError(notifiable, channel, error, stack));
         }
       }
+    }
+    if (errors.length == 1 && count == 1) {
+      Error.throwWithStackTrace(errors.single.error, errors.single.stack);
     }
     if (errors.isNotEmpty) throw NotificationException(errors);
   }
@@ -120,9 +127,22 @@ class NotificationException implements Exception {
     );
     for (NotificationError e in errors) {
       String channel = e.channel?.runtimeType.toString() ?? 'via()';
-      out.write('\n- ${e.notifiable} on $channel: ${e.error}');
+      out.write('\n- ${_label(e.notifiable)} on $channel: ${e.error}');
     }
     return out.toString();
+  }
+
+  /// The type and the mail route of a [Notifiable], eg. `User
+  /// (ann@example.com)`, because a model has no useful `toString()`.
+  static String _label(Object notifiable) {
+    if (notifiable is! Notifiable) return '$notifiable';
+    try {
+      Object? route = notifiable.routeNotificationFor('mail');
+      if (route != null) return '${notifiable.runtimeType} ($route)';
+    } catch (_) {
+      // the route itself failed: the type alone
+    }
+    return '${notifiable.runtimeType}';
   }
 }
 

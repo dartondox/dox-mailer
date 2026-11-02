@@ -2,7 +2,7 @@
 
 You write a `Message` and call `Mail.send()`. A transport sends it. You pick the transport in a config file, so you can change providers with no code change.
 
-The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `http` and `crypto`.
+The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `dox_view`, `markdown`, `http` and `crypto`.
 
 ## Install
 
@@ -237,7 +237,7 @@ Thanks for joining. Here is what you can do next:
 
 [Open your profile]({{ profileUrl }})
 
-<a href="{{ route('dashboard') }}" class="button">Open the app</a>
+<a href="https://example.com/dashboard" class="button">Open the app</a>
 ```
 
 ```dart
@@ -253,7 +253,8 @@ String? get markdown => 'emails/welcome';
     `{{ }}` escapes HTML, but not Markdown. So a user's name like `[click](https://evil.example)` or `![x](https://evil.example/p.png)` becomes a normal link or image. Laravel works the same way.
     Links and images with an unsafe URL, like `javascript:`, `vbscript:` or `data:`, lose their URL. Only `http`, `https`, `mailto`, `tel`, `cid` and relative URLs are kept.
     The same goes for the lines of `MailMessage`. `MailMessage.action()` throws an `ArgumentError` for an unsafe URL.
-    Raw HTML in the template, like `<a href="{{ url }}">`, is not checked. In raw HTML, use only URLs that your app builds, like `route()`. For a URL from a user, use a Markdown link: `[text]({{ url }})`.
+    Raw HTML in the template, like `<a href="{{ url }}">`, is not checked. In raw HTML, use only full URLs that your app builds. Email apps can not open a relative link like `/dashboard`.
+    For a URL in `{{ }}`, use a Markdown link: `[text]({{ url }})`. It goes through the URL check. A bare `{{ url }}` with a `&` in it shows `&amp;` in the link.
 
 !!! warning "Indent"
     Markdown makes a line that starts with 4 spaces into a code block. So do not indent the Markdown inside `@if` or `@each`. Keep it at the start of the line.
@@ -284,7 +285,13 @@ await (MailMessage(subject: 'Invoice paid', to: <Address>[Address('ann@example.c
     .send();
 ```
 
-The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML in a line is escaped. See "User data in Markdown" above.
+More options:
+
+- `cc:` in the constructor adds cc addresses.
+- `attach(Attachment(...))` adds a file.
+- `error()` makes the buttons red, for a message about a problem.
+
+The email starts with `greeting` (default `Hello!`) and ends with `salutation` (default none). Set them to null to leave them out. Lines can use Markdown, like `**bold**`. HTML tags in a line are escaped. See "User data in Markdown" above.
 
 ## Notifications
 
@@ -341,7 +348,9 @@ await Notification.send(<Object>[Address('ann@example.com')], InvoicePaid(1));
 
 When the mailable has its own `to` address, that address is used and the route is not.
 
-When a channel throws, the other channels and the other notifiables still get the notification. At the end, `Notification.send()` throws a `NotificationException`. Its `errors` list says which notifiable and channel failed, and why. When `via()` throws, the channel is null. The error text lists every failure.
+When a channel throws, the other channels and the other notifiables still get the notification. At the end, `Notification.send()` throws a `NotificationException`. Its `errors` list says which notifiable and channel failed, and why. When `via()` throws, the channel is null. The error text lists every failure, with the type and the mail address of each notifiable.
+
+With one notifiable and one error, like `user.notify()`, the error is thrown as it is. So `on MailException catch (e)` still works there.
 
 ### Queue it
 
@@ -372,9 +381,10 @@ Write a class that implements `NotificationChannel`. `toArray()` of the notifica
 class DatabaseChannel implements NotificationChannel {
   @override
   Future<void> send(Object notifiable, Notification notification) async {
+    // only a user has a row. An Address or an email text has none.
+    if (notifiable is! User) return;
     AppNotification row = AppNotification()
-      ..userId = (notifiable as User).id
-      ..type = notification.runtimeType.toString()
+      ..userId = notifiable.id
       ..data = jsonEncode(notification.toArray(notifiable));
     await row.save();
   }
@@ -390,7 +400,7 @@ class InvoicePaid extends Notification {
 
   @override
   Map<String, Object?> toArray(Object notifiable) {
-    return <String, Object?>{'invoice_id': invoiceId};
+    return <String, Object?>{'type': 'invoice_paid', 'invoice_id': invoiceId};
   }
 
   // ...

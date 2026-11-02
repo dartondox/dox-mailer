@@ -157,6 +157,13 @@ void main() {
       'Hi {{ name }}\n\n[site](https://example.com/a:b) [me](mailto:a@b.c) '
       '[rel](/x?y=a:b) ![logo](cid:logo)\n',
     );
+    File('${views.path}/raw.dox.html').writeAsStringSync(
+      'https://example.com/?a=1&b=2\n\n'
+      '[x](https://example.com/?c=3&d=4)\n\n'
+      '[a](javascript&amp;#58;alert(1)) [b](javascript&#x3A;x) '
+      '[c](javascript&colon;x) [d](&#106;avascript:x) '
+      '![e](data&#58;image/png;base64,xx) <javascript&#58;y>\n',
+    );
     View.configure(ViewConfig(path: views.path, cache: false));
   });
 
@@ -230,7 +237,7 @@ void main() {
       String html = (MailMessage()..line(bad)).toMessage().html!;
       expectNoUnsafeUrl(html);
       expect(html, contains('<a>a</a>'));
-      expect(html, contains('<a href="JaVa&amp;#115;cript&amp;#58;x">b</a>'));
+      expect(html, contains('<a>b</a>'));
       expect(html, contains('<img alt="d" />'));
     });
 
@@ -246,7 +253,49 @@ void main() {
     });
   });
 
+  group('links with &', () {
+    test('a bare URL and a [x](url) link escape & once', () {
+      String html =
+          (MailMessage()
+                ..line('https://example.com/?a=1&b=2')
+                ..line('[x](https://example.com/?c=3&d=4)'))
+              .toMessage()
+              .html!;
+      expect(html, contains('href="https://example.com/?a=1&amp;b=2"'));
+      expect(html, contains('href="https://example.com/?c=3&amp;d=4"'));
+      expect(html, isNot(contains('&amp;amp;')));
+    });
+
+    test('raw Markdown: & once, and encoded javascript: stays blocked', () {
+      String html = _TemplateMail(
+        'raw',
+        const <String, Object?>{},
+      ).toMessage().html!;
+      expect(html, contains('href="https://example.com/?a=1&amp;b=2"'));
+      expect(html, contains('href="https://example.com/?c=3&amp;d=4"'));
+      expect(html, isNot(contains('&amp;amp;')));
+      expect(html, contains('<a>a</a>'));
+      expect(html, contains('<a>b</a>'));
+      expect(html, contains('<a>d</a>'));
+      expect(html, contains('<img alt="e" />'));
+      expect(html, contains('<a>c</a>'));
+      expect(html, isNot(contains(RegExp('(href|src)="[^"]*(script|data):'))));
+    });
+  });
+
   group('MailMessage', () {
+    test('cc, attach() and error()', () {
+      Message message =
+          (MailMessage(cc: <Address>[const Address('c@x.io')])
+                ..attach(Attachment(<int>[1, 2], 'a.pdf'))
+                ..error()
+                ..action('Retry', 'https://example.com/retry'))
+              .toMessage();
+      expect(message.cc.single.email, 'c@x.io');
+      expect(message.attachments.single.filename, 'a.pdf');
+      expect(message.html, contains('class="button button-error">Retry</a>'));
+    });
+
     test('action() throws for an unsafe URL', () {
       for (String url in <String>[
         'javascript:alert(1)',
@@ -350,19 +399,30 @@ void main() {
       );
     });
 
+    test('one notifiable and one error: the error as it is', () async {
+      _User user = _User(null);
+      await expectLater(
+        user.notify(_InvoicePaid()),
+        throwsA(isA<MailException>()),
+      );
+      expect(user.saved, hasLength(1));
+    });
+
     test('a failed via() does not stop the others', () async {
       Object? thrown;
       try {
         await Notification.send(<Object>[
           'not a user',
+          _User('Ann <ann@example.com>'),
           const Address('b@example.com'),
         ], _PickyNotification());
       } catch (error) {
         thrown = error;
       }
       NotificationException e = thrown! as NotificationException;
-      expect(e.errors.single.channel, isNull);
+      expect(e.errors.first.channel, isNull);
       expect('$e', contains('- not a user on via(): Bad state: no channel'));
+      expect('$e', contains('- _User (Ann <ann@example.com>) on via()'));
       expect(mail.messages.single.to.single.email, 'b@example.com');
     });
 

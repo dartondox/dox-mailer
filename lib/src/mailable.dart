@@ -129,13 +129,15 @@ abstract class Mailable {
 ///   ..action('View invoice', 'https://example.com/invoices/1')
 ///   ..line('Thank you!');
 /// ```
-/// Lines can use Markdown, like `**bold**`. HTML in them is escaped.
+/// Lines can use Markdown, like `**bold**`. HTML tags in them are
+/// escaped. Links in them go through the same URL check as templates.
 class MailMessage extends Mailable {
   MailMessage({
     this.subject = '',
     this.greeting = 'Hello!',
     this.salutation,
     this.to = const <Address>[],
+    this.cc = const <Address>[],
     this.mailer,
   });
 
@@ -153,15 +155,32 @@ class MailMessage extends Mailable {
   final List<Address> to;
 
   @override
+  final List<Address> cc;
+
+  @override
+  final List<Attachment> attachments = <Attachment>[];
+
+  @override
   final String? mailer;
 
-  final List<String> _markdown = <String>[];
-  final List<String> _text = <String>[];
+  /// the lines and buttons: a button has a URL
+  final List<(String, String?)> _items = <(String, String?)>[];
+
+  bool _error = false;
 
   /// add a paragraph
   void line(String text) {
-    _markdown.add(escapeHtml(text));
-    _text.add(text);
+    _items.add((text, null));
+  }
+
+  /// add a file
+  void attach(Attachment file) {
+    attachments.add(file);
+  }
+
+  /// Make the buttons red, for a message about a problem.
+  void error() {
+    _error = true;
   }
 
   /// Add a button that opens [url]. Throws an [ArgumentError] for a
@@ -172,20 +191,26 @@ class MailMessage extends Mailable {
     if (!_isSafeUrl(url)) {
       throw ArgumentError.value(url, 'url', 'is not a safe link');
     }
-    _markdown.add(
-      '<a href="${escapeHtml(url)}" class="button">${escapeHtml(label)}</a>',
-    );
-    _text.add('$label: $url');
+    _items.add((label, url));
   }
 
   /// the greeting, the body and the salutation. [html]: as Markdown
   List<String> _parts(bool html) {
     String? greeting = this.greeting;
     String? salutation = this.salutation;
+    String button = _error ? 'button button-error' : 'button';
     return <String>[
-      if (greeting != null) html ? '**${escapeHtml(greeting)}**' : greeting,
-      ...(html ? _markdown : _text),
-      if (salutation != null) html ? escapeHtml(salutation) : salutation,
+      if (greeting != null) html ? '**${_escapeTags(greeting)}**' : greeting,
+      for (final (String text, String? url) in _items)
+        switch ((html, url)) {
+          (true, null) => _escapeTags(text),
+          (false, null) => text,
+          (true, String url) =>
+            '<a href="${escapeHtml(url)}" class="$button">'
+                '${escapeHtml(text)}</a>',
+          (false, String url) => '$text: $url',
+        },
+      if (salutation != null) html ? _escapeTags(salutation) : salutation,
     ];
   }
 
@@ -220,12 +245,16 @@ void _dropUnsafeUrls(List<md.Node>? nodes) {
   for (md.Node node in nodes ?? const <md.Node>[]) {
     if (node is! md.Element) continue;
     for (String name in const <String>['href', 'src']) {
-      String? url = node.attributes[name];
-      if (url == null) continue;
+      String? value = node.attributes[name];
+      if (value == null) continue;
+      // An autolink comes HTML-escaped, a `[x](url)` link comes decoded.
+      // Decode both the same way, check the URL, then escape it once:
+      // the renderer writes attributes as they are. So the browser gets
+      // exactly the URL that was checked, and `&#58;` can not turn into
+      // a `:` after the check.
+      String url = _decodeEntities(value);
       if (_isSafeUrl(url)) {
-        // the renderer writes `&` as it is, so `&#58;` would turn into
-        // a `:` in the browser. Escape it: the browser sees the text.
-        node.attributes[name] = url.replaceAll('&', '&amp;');
+        node.attributes[name] = escapeHtml(url);
       } else {
         node.attributes.remove(name);
       }
@@ -234,9 +263,39 @@ void _dropUnsafeUrls(List<md.Node>? nodes) {
   }
 }
 
+final RegExp _entity = RegExp(
+  r'&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|(amp|lt|gt|quot|apos));',
+);
+
+const Map<String, String> _named = <String, String>{
+  'amp': '&',
+  'lt': '<',
+  'gt': '>',
+  'quot': '"',
+  'apos': "'",
+};
+
+/// [url] with HTML entities decoded once, eg. `&amp;` and `&#58;`.
+/// Other entities stay as text. That is safe: the result is checked
+/// and then escaped, so the browser sees the same text.
+String _decodeEntities(String url) {
+  return url.contains('&') ? url.replaceAllMapped(_entity, _decode) : url;
+}
+
+String _decode(Match match) {
+  String? named = match[3];
+  if (named != null) return _named[named]!;
+  String? decimal = match[1];
+  int? code = decimal != null
+      ? int.tryParse(decimal)
+      : int.tryParse(match[2]!, radix: 16);
+  if (code == null || code > 0x10FFFF) return match[0]!;
+  return String.fromCharCode(code);
+}
+
 /// True for a relative URL or a URL with a scheme of [_safeSchemes].
 /// Browsers skip spaces and control characters in a scheme, so they
-/// are removed first. package:markdown has decoded entities already.
+/// are removed first.
 bool _isSafeUrl(String url) {
   String value = String.fromCharCodes(url.codeUnits.where(_isVisible))
       .toLowerCase();
@@ -265,6 +324,7 @@ body { margin: 0; padding: 24px 12px; background: #f4f4f7; color: #333; font: 16
 .card { max-width: 570px; margin: 0 auto; padding: 32px; background: #fff; border-radius: 4px; }
 a { color: #2563eb; }
 a.button { display: inline-block; padding: 10px 18px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 4px; }
+a.button-error { background: #dc2626; }
 table { border-collapse: collapse; } th, td { padding: 6px 10px; border-bottom: 1px solid #e5e5e5; text-align: left; }
 </style>
 </head>
@@ -273,6 +333,13 @@ $body
 </div></body>
 </html>
 ''';
+}
+
+/// [text] with `<` and `>` escaped, so a line can not make an HTML tag.
+/// `&` stays: Markdown shows a lone `&` as text, and an autolink with
+/// an escaped `&` would get it escaped twice.
+String _escapeTags(String text) {
+  return text.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
 /// undo `escapeHtml`, for the text body of a template
