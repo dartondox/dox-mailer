@@ -5,7 +5,7 @@ library;
 export 'src/address.dart';
 export 'src/attachment.dart';
 export 'src/aws/sigv4.dart';
-export 'src/mail.dart';
+export 'src/mail.dart' hide sendMessage;
 export 'src/mailable.dart';
 export 'src/mail_config.dart';
 export 'src/mail_exception.dart';

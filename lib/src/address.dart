@@ -29,6 +29,28 @@ class Address {
     return Address(json['email'] as String, json['name'] as String?);
   }
 
+  /// [value] as a list of addresses. It takes an [Address], an email
+  /// text like `Ann <ann@example.com>`, or a list of these. Throws an
+  /// [ArgumentError] for anything else.
+  /// ```
+  /// Address.list('ann@example.com')
+  /// Address.list(<Object>['ann@example.com', Address('bob@example.com')])
+  /// ```
+  static List<Address> list(Object value) {
+    if (value is Iterable<Object?>) {
+      return <Address>[for (Object? item in value) ..._one(item)];
+    }
+    return _one(value);
+  }
+
+  static List<Address> _one(Object? value) {
+    return switch (value) {
+      Address address => <Address>[address],
+      String text => <Address>[Address.parse(text)],
+      _ => throw ArgumentError.value(value, 'value', 'is not an address'),
+    };
+  }
+
   final String email;
   final String? name;
 

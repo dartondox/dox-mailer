@@ -51,6 +51,17 @@ class _Closable extends ArrayTransport {
   }
 }
 
+class _Note extends Mailable {
+  @override
+  List<Address> get to => <Address>[const Address('a@example.com')];
+
+  @override
+  String get subject => 'Note';
+
+  @override
+  String get text => 'A note';
+}
+
 Message _message({Address? from}) => Message(
   from: from,
   to: <Address>[const Address('ann@example.com')],
@@ -89,6 +100,97 @@ void main() {
   test('a from address of the message wins', () async {
     await Mail.send(_message(from: const Address('me@example.com')));
     expect(main.messages.single.from, const Address('me@example.com'));
+  });
+
+  group('hooks and alwaysTo', () {
+    tearDown(() {
+      Mail.clearHooks();
+      Mail.alwaysTo(null);
+    });
+
+    test('onSending and onSent run around each send', () async {
+      List<String> log = <String>[];
+      Mail.onSending((Message message) => log.add('sending ${message.from}'));
+      Mail.onSent(
+        (SentMessage sent) async => log.add('sent ${sent.messageId}'),
+      );
+      await Mail.send(_message());
+      expect(log, <String>[
+        'sending App <app@example.com>',
+        'sent ${main.sent.single.messageId}',
+      ]);
+    });
+
+    test('an onSending hook that throws stops the send', () async {
+      Mail.onSending((Message message) => throw StateError('no'));
+      await expectLater(Mail.send(_message()), throwsStateError);
+      expect(main.sent, isEmpty);
+    });
+
+    test('alwaysTo sends to one address, with no cc and bcc', () async {
+      Mail.alwaysTo('qa@example.com');
+      await Mail.send(
+        _message().copyWith(cc: <Address>[const Address('c@example.com')]),
+      );
+      Message sent = main.messages.single;
+      expect(sent.to, <Address>[const Address('qa@example.com')]);
+      expect(sent.cc, isEmpty);
+
+      Mail.alwaysTo(null);
+      await Mail.send(_message());
+      expect(main.messages.last.to.single.email, 'ann@example.com');
+      expect(() => Mail.alwaysTo('no address'), throwsA(isA<MailException>()));
+    });
+  });
+
+  group('Mail.to and Mail.raw', () {
+    test('Address.list reads text, addresses and lists', () {
+      expect(Address.list('Ann <ann@example.com>'), <Address>[
+        const Address('ann@example.com', 'Ann'),
+      ]);
+      expect(
+        Address.list(<Object>['a@example.com', const Address('b@example.com')]),
+        <Address>[
+          const Address('a@example.com'),
+          const Address('b@example.com'),
+        ],
+      );
+      expect(() => Address.list(5), throwsArgumentError);
+    });
+
+    test('Mail.raw sends a text email', () async {
+      await Mail.raw('Hello', to: 'ann@example.com', subject: 'Hi');
+      Message sent = main.messages.single;
+      expect(sent.to.single.email, 'ann@example.com');
+      expect(sent.subject, 'Hi');
+      expect(sent.text, 'Hello');
+    });
+
+    test('chained calls add recipients to a mailable', () async {
+      await Mail.to('b@example.com')
+          .cc('c@example.com')
+          .bcc(<String>['d@example.com'])
+          .send(_Note());
+      Message sent = main.messages.single;
+      expect(sent.to.map((Address a) => a.email), <String>[
+        'a@example.com',
+        'b@example.com',
+      ]);
+      expect(sent.cc.single.email, 'c@example.com');
+      expect(sent.bcc.single.email, 'd@example.com');
+
+      await Mail.to('e@example.com').raw('Hi there', subject: 'Yo');
+      expect(main.messages.last.to.single.email, 'e@example.com');
+      expect(main.messages.last.text, 'Hi there');
+    });
+
+    test('chained queue keeps the recipients', () async {
+      ArrayTransport fake = Mail.fake();
+      await Mail.to('b@example.com').queue(_Note());
+      await Mail.to('c@example.com').later(Duration.zero, _Note());
+      expect(fake.queued.first.message.to.last.email, 'b@example.com');
+      expect(fake.queued.last.message.to.last.email, 'c@example.com');
+    });
   });
 
   test('Mail.mailer picks a named mailer', () async {
@@ -259,6 +361,20 @@ void main() {
       allDown.send(_message(from: const Address('a@example.com'))),
       throwsA(isA<MailException>()),
     );
+  });
+
+  test('an async onError that throws does not stop the failover', () async {
+    // its error must not be an uncaught error: the test fails on one
+    ArrayTransport backup = ArrayTransport();
+    FailoverTransport failover = FailoverTransport(
+      <Transport>[_Broken(), backup],
+      onError: (Transport transport, Object error, StackTrace stack) async {
+        throw StateError('log is down');
+      },
+    );
+    await failover.send(_message(from: const Address('a@example.com')));
+    await Future<void>.delayed(Duration.zero);
+    expect(backup.sent, hasLength(1));
   });
 
   test('a direct failover send takes a message with no from', () async {

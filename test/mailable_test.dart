@@ -48,6 +48,14 @@ class _TemplateMail extends Mailable {
   String get subject => 'Hi';
 }
 
+class _JsonUser {
+  const _JsonUser(this.name);
+
+  final String name;
+
+  Map<String, Object?> toJson() => <String, Object?>{'name': name};
+}
+
 class _ListUser with Notifiable {
   @override
   Object? routeNotificationFor(String channel) {
@@ -150,6 +158,11 @@ void main() {
     );
     File('${views.path}/bare.dox.html').writeAsStringSync(
       '[link]({{ url }})\n\n<{{ url }}>\n\n{{ url }}\n\n{{ bad }}\n',
+    );
+    File('${views.path}/values.dox.html').writeAsStringSync(
+      'Hi {{ name }}\n\n`{{ tag }}`\n\n[go]({{ url }}) [no]({{ bad }})\n\n'
+      '{{ user.name }} {{ items[0].a }} {{ items[1] }} {{ md }}\n\n'
+      '@if(code == "in_progress")\nsame\n@end\n',
     );
     View.configure(ViewConfig(path: views.path, cache: false));
   });
@@ -278,8 +291,8 @@ void main() {
           '&next=%2Fa%20b%26c#f';
       String html = _TemplateMail('bare', const <String, Object?>{
         'url': url,
-        // {{ }} escapes it once more: three levels in the href
-        'bad': '[z](javascript&amp;#58;x) www.example.com/?a=1&b=2',
+        // a link in a value is text, not a link
+        'bad': '[z](javascript:x) www.example.com/?a=1&b=2',
       }).toMessage().html!;
       // the input URL, byte for byte, escaped once
       String escaped = url.replaceAll('&', '&amp;');
@@ -287,11 +300,13 @@ void main() {
       expect(html, contains('<a href="$escaped">$escaped</a>'));
       // a bare URL is no link: plain text
       expect(html, contains('<p>$escaped</p>'));
-      expect(html, contains('www.example.com/?a=1&amp;b=2</p>'));
+      expect(
+        html,
+        contains('<p>[z](javascript:x) www.example.com/?a=1&amp;b=2</p>'),
+      );
       expect(html, isNot(contains('http://www.')));
       expect(html, isNot(contains('%25')));
       expect(html, isNot(contains('&amp;amp;')));
-      expect(html, contains('<a>z</a>'));
     });
 
     test('a bare URL in a line is no link', () {
@@ -321,6 +336,57 @@ void main() {
         ),
       );
       expect(html, isNot(contains('&amp;amp;')));
+    });
+  });
+
+  group('{{ }} values in Markdown', () {
+    Message render() {
+      return _TemplateMail('values', <String, Object?>{
+        'name': '[Verify](https://evil.example) **b** # h | x \\',
+        'tag': '<b>',
+        'url': 'https://example.com/a#[x]',
+        'bad': 'javascript:alert(1)',
+        'user': const _JsonUser('![i](https://evil.example/i.png)'),
+        'items': <Object?>[
+          <String, Object?>{'a': '*x*'},
+          '`code`',
+        ],
+        'md': SafeString('*md*'),
+        'code': 'in_progress',
+      }).toMessage();
+    }
+
+    test('stay text, not links or Markdown', () {
+      String html = render().html!;
+      expect(
+        html,
+        contains('<p>Hi [Verify](https://evil.example) **b** # h | x \\</p>'),
+      );
+      expect(html, isNot(contains('evil.example"')));
+      expect(html, contains('![i](https://evil.example/i.png)'));
+      expect(html, contains('*x* `code`'));
+      expect(html, isNot(contains('<img')));
+      expect(html, isNot(contains('<strong>')));
+      // a SafeString is Markdown, and a value in @if is not changed
+      expect(html, contains('<em>md</em>'));
+      expect(html, contains('same'));
+    });
+
+    test('a code span escapes once', () {
+      expect(render().html, contains('<code>&lt;b&gt;</code>'));
+    });
+
+    test('[x]({{ url }}) keeps a good URL and drops a bad one', () {
+      String html = render().html!;
+      expect(html, contains('<a href="https://example.com/a#[x]">go</a>'));
+      expect(html, contains('<a>no</a>'));
+    });
+
+    test('the text body has the values as they are', () {
+      String text = render().text!;
+      expect(text, contains('Hi [Verify](https://evil.example) **b** # h'));
+      expect(text, contains('`<b>`'));
+      expect(text, contains('[go](https://example.com/a#[x])'));
     });
   });
 

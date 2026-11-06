@@ -7,7 +7,8 @@ import '../transport.dart';
 ///
 /// [onError] gets the error of each transport that fails, so you can see
 /// why the first ones failed too. When [onError] throws, that error is
-/// ignored and the next transport is still tried.
+/// ignored and the next transport is still tried. An `async` [onError]
+/// is not awaited, and its error is ignored too.
 ///
 /// A bad address or a header line break throws a `MailException` at
 /// once. It is checked before the first transport, so no transport tries
@@ -47,7 +48,10 @@ class FailoverTransport extends Transport {
   /// next transport is still tried and the send error is not lost.
   void _report(Transport transport, Object error, StackTrace stack) {
     try {
-      onError?.call(transport, error, stack);
+      // an async callback fits the void type: drop the error of its
+      // Future too, or it is an uncaught error of the zone
+      Object? result = onError?.call(transport, error, stack) as Object?;
+      if (result is Future<Object?>) result.ignore();
     } catch (_) {
       // ponytail: dropped, add a hook for it if someone needs to see it
     }
