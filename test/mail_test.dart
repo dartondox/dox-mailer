@@ -237,6 +237,30 @@ void main() {
     expect(seen.last, same(last));
   });
 
+  test('an onError that throws does not stop the failover', () async {
+    ArrayTransport backup = ArrayTransport();
+    FailoverTransport failover = FailoverTransport(
+      <Transport>[_Broken(), backup],
+      onError: (Transport transport, Object error, StackTrace stack) {
+        throw StateError('log is down');
+      },
+    );
+    await failover.send(_message(from: const Address('a@example.com')));
+    expect(backup.sent, hasLength(1));
+
+    // the send error is thrown, not the onError one
+    FailoverTransport allDown = FailoverTransport(
+      <Transport>[_Broken()],
+      onError: (Transport transport, Object error, StackTrace stack) {
+        throw StateError('log is down');
+      },
+    );
+    await expectLater(
+      allDown.send(_message(from: const Address('a@example.com'))),
+      throwsA(isA<MailException>()),
+    );
+  });
+
   test('a direct failover send takes a message with no from', () async {
     // as in 3.0.0: only Mailer.send asks for a from, recipient and body
     ArrayTransport backup = ArrayTransport();

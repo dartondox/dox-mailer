@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Fix: in `FailoverTransport`, an `onError` callback that throws stopped the failover, so the next transports were never tried. Now an error from `onError` is ignored: the next transport is still tried, and the send error is thrown as before.
 - Fix: the `assertSentCount` error said "Expected 1 sent emails". Now it says "Expected 1 sent email".
 - Docs: with both `Mail.fake()` and `Queue.fake()` on, `Mail.fake()` catches queued emails first.
 - Fix: `Attachment.fromFile` read the file with a blocking call, which stops the server for every other request while it reads. Now the file is read without blocking when the message is sent or queued. A missing file now throws its `FileSystemException` from `send()` (or `queue()`), not from `fromFile`. Reading `bytes` before that still works: it reads the file then.

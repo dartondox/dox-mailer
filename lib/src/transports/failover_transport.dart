@@ -6,7 +6,8 @@ import '../transport.dart';
 /// the error of the last one when none can.
 ///
 /// [onError] gets the error of each transport that fails, so you can see
-/// why the first ones failed too.
+/// why the first ones failed too. When [onError] throws, that error is
+/// ignored and the next transport is still tried.
 ///
 /// A bad address or a header line break throws a `MailException` at
 /// once. It is checked before the first transport, so no transport tries
@@ -35,11 +36,21 @@ class FailoverTransport extends Transport {
       try {
         return await transports[i].send(message);
       } catch (error, stack) {
-        onError?.call(transports[i], error, stack);
+        _report(transports[i], error, stack);
         if (i == transports.length - 1) rethrow;
       }
     }
     throw StateError('unreachable');
+  }
+
+  /// Calls [onError]. An error thrown by [onError] is ignored, so the
+  /// next transport is still tried and the send error is not lost.
+  void _report(Transport transport, Object error, StackTrace stack) {
+    try {
+      onError?.call(transport, error, stack);
+    } catch (_) {
+      // ponytail: dropped, add a hook for it if someone needs to see it
+    }
   }
 
   @override
