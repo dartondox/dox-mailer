@@ -78,8 +78,22 @@ class Mail {
   /// and `cc` and `bcc` are cleared. It works for queued emails too: it
   /// counts when the worker sends them. [address] is an [Address], an
   /// email text, or a list of these. Null turns it off.
+  ///
+  /// Each isolate has its own value (server isolates, queue worker). So
+  /// call it in `setup()` of your mail provider, after `super.setup()`.
+  /// A call in `main()` does not reach queued emails.
   /// ```
-  /// if (Env.get<String>('APP_ENV') == 'staging') Mail.alwaysTo('qa@example.com');
+  /// class AppMailProvider extends MailProvider {
+  ///   AppMailProvider() : super(mailConfig);
+  ///
+  ///   @override
+  ///   void setup() {
+  ///     super.setup();
+  ///     if (Env.get<String>('APP_ENV') == 'staging') {
+  ///       Mail.alwaysTo('qa@example.com');
+  ///     }
+  ///   }
+  /// }
   /// ```
   static void alwaysTo(Object? address) {
     if (address == null) {
@@ -96,6 +110,10 @@ class Mail {
   /// Call [hook] before each email is sent, with the full message (the
   /// default from and [alwaysTo] are set), eg. to log it. When [hook]
   /// throws, the email is not sent and `send()` throws that error.
+  ///
+  /// Each isolate has its own hooks. Add them in `setup()` of your mail
+  /// provider, after `super.setup()`, like [alwaysTo]. A hook added in
+  /// `main()` does not run for queued emails.
   /// ```
   /// Mail.onSending((Message message) => print('to ${message.to}'));
   /// ```
@@ -105,7 +123,8 @@ class Mail {
 
   /// Call [hook] after each email is sent, eg. to log the message id.
   /// When [hook] throws, `send()` throws that error, but the email is
-  /// already sent.
+  /// already sent. Add it in `setup()` of your mail provider, like
+  /// [onSending].
   static void onSent(FutureOr<void> Function(SentMessage sent) hook) {
     _sent.add(hook);
   }

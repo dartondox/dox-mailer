@@ -65,7 +65,7 @@ abstract class Mailable {
   ///
   /// Text values of [data] are not Markdown: `{{ name }}` with
   /// `[Verify](https://evil.com)` shows that text, not a link. This
-  /// counts for text in maps, lists and objects with `toJson()` too.
+  /// counts for text in maps, lists, sets and objects with `toJson()` too.
   /// To put Markdown from a value in the email, pass a `SafeString`.
   /// These characters of a text value stay text: backslash, backtick,
   /// `*`, `[`, `]`, `#` and `|`. A `_` is not changed, so `_word_` can
@@ -247,8 +247,8 @@ class MailMessage extends Mailable {
 /// a template compares.
 const String _mdChars = r'\`*[]#|';
 
-/// [value] with the text in it masked, see [_mdChars]. Maps, lists and
-/// objects with `toJson()` are copied. Other values stay as they are.
+/// [value] with the text in it masked, see [_mdChars]. Maps, sets,
+/// other iterables (as lists) and objects with `toJson()` are copied. Other values stay as they are.
 Object? _maskData(Object? value, int depth) {
   // ponytail: deep data is left as it is, so a map that holds itself
   // does not loop forever
@@ -261,7 +261,9 @@ Object? _maskData(Object? value, int depth) {
         for (MapEntry<Object?, Object?> e in map.entries)
           e.key: _maskData(e.value, depth + 1),
       };
-    case List<Object?> list:
+    case Set<Object?> set:
+      return <Object?>{for (Object? item in set) _maskData(item, depth + 1)};
+    case Iterable<Object?> list:
       return <Object?>[for (Object? item in list) _maskData(item, depth + 1)];
     case null || num() || bool() || SafeString() || Function() || Record():
       return value;

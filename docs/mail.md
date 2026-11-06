@@ -119,6 +119,7 @@ await Mail.to('ann@example.com')
 - `send()` takes a mailable. The recipients are added to the ones of the mailable.
 - `queue()` and `later()` work too, like `Mail.to(email).queue(WelcomeMail(user))`.
 - `Address.list()` reads addresses the same way: `Message(to: Address.list('ann@example.com'), ...)`.
+- One text is one address. For more addresses, pass a list: `Address.list(<String>['ann@example.com', 'bob@example.com'])`.
 
 ### The message
 
@@ -276,7 +277,7 @@ String? get markdown => 'emails/welcome';
 
 !!! warning "User data in Markdown"
     `{{ }}` escapes HTML and Markdown. A user's name like `[click](https://evil.example)` shows as that text. It does not become a link.
-    This counts for text values in `data`, in its maps and lists, and in objects with `toJson()`. Values from `View.global()` and from functions are not changed.
+    This counts for text values in `data`, in its maps, lists and sets, and in objects with `toJson()`. Values from `View.global()` and from functions are not changed.
     To put Markdown from a value in the email, pass a `SafeString`.
     The kept characters are backslash, backtick, `*`, `[`, `]`, `#` and `|`. A `_` is not changed, so `_word_` can still be italic.
     In `@if`, a value with one of these characters is not equal to the same text written in the template.
@@ -694,15 +695,25 @@ For SMTP and sendmail, use `headers` instead.
 
 ## Hooks
 
-Run code before or after each email is sent, eg. to log it. Dox has no event system, so hooks are plain functions:
+Run code before or after each email is sent, eg. to log it. Dox has no event system, so hooks are plain functions.
+
+Each isolate has its own hooks: the server isolates and the queue worker. So add them in `setup()` of your mail provider, after `super.setup()`. Then every isolate gets them. A hook added in `main()` does not reach queued emails.
 
 ```dart
-Mail.onSending((Message message) {
-  print('sending "${message.subject}" to ${message.to}');
-});
-Mail.onSent((SentMessage sent) {
-  print('sent ${sent.messageId}');
-});
+class AppMailProvider extends MailProvider {
+  AppMailProvider() : super(mailConfig);
+
+  @override
+  void setup() {
+    super.setup();
+    Mail.onSending((Message message) {
+      print('sending "${message.subject}" to ${message.to}');
+    });
+    Mail.onSent((SentMessage sent) {
+      print('sent ${sent.messageId}');
+    });
+  }
+}
 ```
 
 - Hooks run for every mailer. They also run for queued emails, when the worker sends them, and with `Mail.fake()`.
@@ -712,10 +723,20 @@ Mail.onSent((SentMessage sent) {
 
 ## Send all email to one address
 
-On a staging server, send every email to your own inbox, so real users get nothing:
+On a staging server, send every email to your own inbox, so real users get nothing. Like hooks, call it in `setup()` of your mail provider, after `super.setup()`, so every isolate gets it:
 
 ```dart
-if (Env.get<String>('APP_ENV') == 'staging') Mail.alwaysTo('qa@example.com');
+class AppMailProvider extends MailProvider {
+  AppMailProvider() : super(mailConfig);
+
+  @override
+  void setup() {
+    super.setup();
+    if (Env.get<String>('APP_ENV') == 'staging') {
+      Mail.alwaysTo('qa@example.com');
+    }
+  }
+}
 ```
 
 The `to` of each email becomes that address, and `cc` and `bcc` are cleared. It counts for queued emails too. `Mail.alwaysTo(null)` turns it off.

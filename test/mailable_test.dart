@@ -162,6 +162,7 @@ void main() {
     File('${views.path}/values.dox.html').writeAsStringSync(
       'Hi {{ name }}\n\n`{{ tag }}`\n\n[go]({{ url }}) [no]({{ bad }})\n\n'
       '{{ user.name }} {{ items[0].a }} {{ items[1] }} {{ md }}\n\n'
+      '@each(tag in tags)\n{{ tag }}\n@end\n\n'
       '@if(code == "in_progress")\nsame\n@end\n',
     );
     View.configure(ViewConfig(path: views.path, cache: false));
@@ -353,6 +354,7 @@ void main() {
         ],
         'md': SafeString('*md*'),
         'code': 'in_progress',
+        'tags': <String>{'[s](https://evil.example/s)'},
       }).toMessage();
     }
 
@@ -363,6 +365,8 @@ void main() {
         contains('<p>Hi [Verify](https://evil.example) **b** # h | x \\</p>'),
       );
       expect(html, isNot(contains('evil.example"')));
+      expect(html, isNot(contains('evil.example/s"')));
+      expect(html, contains('[s](https://evil.example/s)'));
       expect(html, contains('![i](https://evil.example/i.png)'));
       expect(html, contains('*x* `code`'));
       expect(html, isNot(contains('<img')));

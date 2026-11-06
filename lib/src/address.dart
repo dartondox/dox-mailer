@@ -30,8 +30,9 @@ class Address {
   }
 
   /// [value] as a list of addresses. It takes an [Address], an email
-  /// text like `Ann <ann@example.com>`, or a list of these. Throws an
-  /// [ArgumentError] for anything else.
+  /// text like `Ann <ann@example.com>`, or a list of these. One text is
+  /// one address: use a list for more. Throws an [ArgumentError] for
+  /// anything else.
   /// ```
   /// Address.list('ann@example.com')
   /// Address.list(<Object>['ann@example.com', Address('bob@example.com')])
