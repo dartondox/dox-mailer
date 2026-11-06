@@ -62,6 +62,16 @@ abstract class Mailable {
   /// A dox_view template with Markdown, eg. `emails/welcome` for
   /// `resources/views/emails/welcome.dox.html`. The HTML body is the
   /// Markdown as HTML inside [layout]. The text body is the Markdown.
+  ///
+  /// Text values of [data] are not Markdown: `{{ name }}` with
+  /// `[Verify](https://evil.com)` shows that text, not a link. This
+  /// counts for text in maps, lists, sets and objects with `toJson()` too.
+  /// To put Markdown from a value in the email, pass a `SafeString`.
+  /// These characters of a text value stay text: backslash, backtick,
+  /// `*`, `[`, `]`, `#` and `|`. A `_` is not changed, so `_word_` can
+  /// still be italic. In `@if` and other code of the template, a value
+  /// with one of these characters is not equal to the same text written
+  /// in the template.
   String? get markdown => null;
 
   /// the variables of the templates
@@ -87,9 +97,12 @@ abstract class Mailable {
     if (view != null) html = View.render(view, data);
     if (textView != null) text = _unescape(View.render(textView, data));
     if (markdown != null) {
-      String source = View.render(markdown, data);
-      html ??= layout(_markdownHtml(source));
-      text ??= _unescape(source);
+      String source = View.render(
+        markdown,
+        Map<String, Object?>.from(_maskData(data, 0)! as Map<Object?, Object?>),
+      );
+      html ??= layout(_unmask(_markdownHtml(source)));
+      text ??= _unmask(_unescape(source));
     }
     return Message(
       from: from,
@@ -227,6 +240,79 @@ class MailMessage extends Mailable {
   String get text => _parts(false).join('\n\n');
 }
 
+/// The Markdown characters of a text value of `{{ }}`. While the
+/// Markdown is parsed, each one is a private use character (U+E000 and
+/// up), so it is plain text. [_unmask] puts them back after. `_` is not
+/// in the list: it is in many keys and codes, like `in_progress`, that
+/// a template compares.
+const String _mdChars = r'\`*[]#|';
+
+/// [value] with the text in it masked, see [_mdChars]. Maps, sets,
+/// other iterables (as lists) and objects with `toJson()` are copied. Other values stay as they are.
+Object? _maskData(Object? value, int depth) {
+  // ponytail: deep data is left as it is, so a map that holds itself
+  // does not loop forever
+  if (depth > 32) return value;
+  switch (value) {
+    case String text:
+      return _mask(text);
+    case Map<Object?, Object?> map:
+      return <Object?, Object?>{
+        for (MapEntry<Object?, Object?> e in map.entries)
+          e.key: _maskData(e.value, depth + 1),
+      };
+    case Set<Object?> set:
+      return <Object?>{for (Object? item in set) _maskData(item, depth + 1)};
+    case Iterable<Object?> list:
+      return <Object?>[for (Object? item in list) _maskData(item, depth + 1)];
+    case null || num() || bool() || SafeString() || Function() || Record():
+      return value;
+  }
+  // like dox_view: an object is read with its toJson()
+  Object? json;
+  try {
+    json = (value as dynamic).toJson();
+  } on NoSuchMethodError {
+    return value;
+  }
+  return json is Map<Object?, Object?> ? _maskData(json, depth) : value;
+}
+
+String _mask(String text) {
+  if (!text.contains(_mdChar)) return text;
+  StringBuffer out = StringBuffer();
+  for (int char in text.codeUnits) {
+    int index = _mdChars.codeUnits.indexOf(char);
+    out.writeCharCode(index < 0 ? char : 0xE000 + index);
+  }
+  return out.toString();
+}
+
+final RegExp _mdChar = RegExp(r'[\\`*\[\]#|]');
+
+/// one masked character: U+E000 and up, one per char of [_mdChars]
+final RegExp _masked = RegExp('[\uE000-\uE006]');
+
+/// undo [_mask]
+String _unmask(String text) {
+  return text.replaceAllMapped(_masked, _unmaskChar);
+}
+
+String _unmaskChar(Match match) {
+  return _mdChars[match[0]!.codeUnitAt(0) - 0xE000];
+}
+
+/// a masked character in a link: the Markdown parser writes it as UTF-8
+/// in `%XX`, eg. U+E005 as `%EE%80%85`
+final RegExp _maskedUrl = RegExp('%EE%80%8([0-6])', caseSensitive: false);
+
+/// undo [_mask] in a URL
+String _unmaskUrl(String url) {
+  return _unmask(url).replaceAllMapped(_maskedUrl, _unmaskUrlChar);
+}
+
+String _unmaskUrlChar(Match match) => _mdChars[int.parse(match[1]!)];
+
 /// [markdown] as HTML, with GitHub tables and lists. Links and images
 /// with an unsafe scheme, like `javascript:` or `data:`, lose their URL.
 /// Laravel does the same (`allow_unsafe_links` is off).
@@ -242,6 +328,7 @@ String _markdownHtml(String markdown, {bool html = true}) {
     blockSyntaxes: const <md.BlockSyntax>[md.TableSyntax()],
   ).parse(markdown);
   if (!html) _escapeRawHtml(nodes);
+  if (html) _fixCodeEscape(nodes);
   _dropUnsafeUrls(nodes);
   return '${md.renderToHtml(nodes)}\n';
 }
@@ -262,6 +349,32 @@ void _escapeRawHtml(List<md.Node>? nodes) {
     }
   }
 }
+
+/// `{{ }}` escapes `<` as `&lt;`, and a code span escapes the `&` once
+/// more, so `` `{{ tag }}` `` showed `&lt;b&gt;`. Undo the second escape
+/// in code spans of a template.
+void _fixCodeEscape(List<md.Node>? nodes) {
+  for (md.Node node in nodes ?? const <md.Node>[]) {
+    if (node is! md.Element) continue;
+    List<md.Node>? children = node.children;
+    if (node.tag == 'code' && children != null) {
+      for (int i = 0; i < children.length; i++) {
+        md.Node child = children[i];
+        if (child is md.Text) {
+          children[i] = md.Text(
+            child.text.replaceAllMapped(_doubleEscape, _firstGroup),
+          );
+        }
+      }
+    } else {
+      _fixCodeEscape(children);
+    }
+  }
+}
+
+final RegExp _doubleEscape = RegExp('&amp;(amp|lt|gt|quot|#39);');
+
+String _firstGroup(Match match) => '&${match[1]};';
 
 /// [text] on one line, so `**text**` stays one bold run
 String _oneLine(String text) => text.replaceAll(RegExp(r'\s*\n\s*'), ' ');
@@ -332,7 +445,8 @@ void _fixAutolinkText(md.Element link) {
 /// [value] decoded with [_decodeEntities] until it does not change.
 /// Null after 5 rounds: too deep to be a real URL.
 String? _decodeAll(String value) {
-  String current = value;
+  // a `{{ url }}` value is still masked here
+  String current = _unmaskUrl(value);
   for (int round = 0; round < 5; round++) {
     String next = _decodeEntities(current);
     if (next == current) return current;

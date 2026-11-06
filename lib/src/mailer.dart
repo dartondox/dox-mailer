@@ -23,7 +23,7 @@ class Mailer {
   /// the one of the config. Throws a `MailException` when the message is
   /// not complete or the provider says no.
   Future<SentMessage> send(Message message) async {
-    return transport.send(await _complete(message));
+    return sendMessage(transport, await _complete(message));
   }
 
   /// Puts [message] on the job queue. A queue worker sends it later with

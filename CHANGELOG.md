@@ -1,5 +1,13 @@
 ## Unreleased
 
+- Fix: in a Markdown mail, `{{ }}` escaped HTML but not Markdown. So a user value like `[Verify](https://evil.example)` became a real link. Now a text value of `data` stays text: backslash, backtick, `*`, `[`, `]`, `#` and `|` in it are not Markdown. This counts for text in maps, lists, sets and objects with `toJson()` too. To put Markdown from a value, pass a `SafeString`. In `@if`, a value with one of these characters is no longer equal to the same text written in the template.
+- Fix: in a Markdown mail, `{{ tag }}` inside backticks was escaped twice, so `<b>` showed as `&lt;b&gt;`. Now it shows as `<b>`.
+- Fix: in `FailoverTransport`, an `async` `onError` that throws gave an uncaught error. Now its error is ignored too. It is not awaited.
+- New: `Mail.onSending()` and `Mail.onSent()` hooks run before and after each email is sent. `Mail.clearHooks()` removes them.
+- New: `Mail.alwaysTo(address)` sends every email to one address, eg. on staging. `cc` and `bcc` are cleared. `Mail.alwaysTo(null)` turns it off.
+- New: `Mail.raw(text, to: 'ann@example.com', subject: 'Hi')` sends a plain text email. `Mail.to('ann@example.com').cc(...).bcc(...).send(mailable)` adds recipients with chained calls. It also has `queue()`, `later()` and `raw()`. Addresses can be plain email text. `Address.list()` reads an `Address`, an email text, or a list of these.
+- Docs: how to attach a file from a storage disk, with `Attachment(bytes, name)`.
+
 - Fix: in `FailoverTransport`, an `onError` callback that throws stopped the failover, so the next transports were never tried. Now an error from `onError` is ignored: the next transport is still tried, and the send error is thrown as before.
 - Fix: the `assertSentCount` error said "Expected 1 sent emails". Now it says "Expected 1 sent email".
 - Docs: with both `Mail.fake()` and `Queue.fake()` on, `Mail.fake()` catches queued emails first.
