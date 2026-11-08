@@ -1,4 +1,4 @@
-## Unreleased
+## 3.1.0
 
 - Fix: in a Markdown mail, `{{ }}` escaped HTML but not Markdown. So a user value like `[Verify](https://evil.example)` became a real link. Now a text value of `data` stays text: backslash, backtick, `*`, `[`, `]`, `#` and `|` in it are not Markdown. This counts for text in maps, lists, sets and objects with `toJson()` too. To put Markdown from a value, pass a `SafeString`. In `@if`, a value with one of these characters is no longer equal to the same text written in the template.
 - Fix: in a Markdown mail, `{{ tag }}` inside backticks was escaped twice, so `<b>` showed as `&lt;b&gt;`. Now it shows as `<b>`.
