@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:io' show stderr;
+
+import 'package:dox_core/dox_core.dart' show Logger;
 
 import 'address.dart';
 import 'mail_config.dart';
@@ -113,8 +116,11 @@ class Mail {
   ///
   /// Each isolate has its own hooks. Add them in `setup()` of your mail
   /// provider, after `super.setup()`, like [alwaysTo]. A hook added in
-  /// `main()` does not run for queued emails.
+  /// `main()` does not run for queued emails. The hooks are kept in a
+  /// list, so start `setup()` with [clearHooks]: then a second `setup()`
+  /// in the same isolate does not add each hook twice.
   /// ```
+  /// Mail.clearHooks();
   /// Mail.onSending((Message message) => print('to ${message.to}'));
   /// ```
   static void onSending(FutureOr<void> Function(Message message) hook) {
@@ -122,9 +128,10 @@ class Mail {
   }
 
   /// Call [hook] after each email is sent, eg. to log the message id.
-  /// When [hook] throws, `send()` throws that error, but the email is
-  /// already sent. Add it in `setup()` of your mail provider, like
-  /// [onSending].
+  /// When [hook] throws, the error is logged and `send()` does not
+  /// throw: the email is already sent. So a queue worker does not try
+  /// the job again and send the email twice. The other hooks still run.
+  /// Add it in `setup()` of your mail provider, like [onSending].
   static void onSent(FutureOr<void> Function(SentMessage sent) hook) {
     _sent.add(hook);
   }
@@ -242,10 +249,26 @@ Future<SentMessage> sendMessage(Transport transport, Message message) async {
     await hook(message);
   }
   SentMessage sent = await transport.send(message);
+  // The email is sent. A hook error must not fail the send: a queue
+  // worker would try the job again and send the email twice.
   for (FutureOr<void> Function(SentMessage sent) hook in Mail._sent) {
-    await hook(sent);
+    try {
+      await hook(sent);
+    } catch (error, stack) {
+      _logSentHookError(error, stack);
+    }
   }
   return sent;
+}
+
+void _logSentHookError(Object error, StackTrace stack) {
+  String text = 'Mail: an onSent hook threw. The email was sent: $error';
+  try {
+    Logger.danger(text, '$stack');
+  } on Error {
+    // no `Dox().initialize()`, so no Logger
+    stderr.writeln('$text\n$stack');
+  }
 }
 
 /// An email that is being built with chained calls. Get one with
