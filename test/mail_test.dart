@@ -127,6 +127,15 @@ void main() {
       expect(main.sent, isEmpty);
     });
 
+    test('an onSent hook that throws does not fail the send', () async {
+      List<String> log = <String>[];
+      Mail.onSent((SentMessage sent) => throw StateError('no'));
+      Mail.onSent((SentMessage sent) => log.add('second hook'));
+      SentMessage sent = await Mail.send(_message());
+      expect(main.sent.single.messageId, sent.messageId);
+      expect(log, <String>['second hook']);
+    });
+
     test('alwaysTo sends to one address, with no cc and bcc', () async {
       Mail.alwaysTo('qa@example.com');
       await Mail.send(

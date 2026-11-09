@@ -464,7 +464,7 @@ class AppMailProvider extends MailProvider {
 
 - Hooks run for every mailer. They also run for queued emails, when the worker sends them, and with `Mail.fake()`.
 - When an `onSending` hook throws, the email is not sent. `send()` throws that error.
-- When an `onSent` hook throws, `send()` throws that error. The email is already sent.
+- When an `onSent` hook throws, the error is logged and `send()` does not throw. The email is already sent, so a queue worker does not send it again.
 - `Mail.clearHooks()` removes all hooks, eg. in a test.
 
 ## Send all email to one address
