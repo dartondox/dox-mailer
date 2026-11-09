@@ -12,7 +12,6 @@
 - New: `Mail.alwaysTo(address)` sends every email to one address, eg. on staging. `cc` and `bcc` are cleared. `Mail.alwaysTo(null)` turns it off.
 - New: `Mail.raw(text, to: 'ann@example.com', subject: 'Hi')` sends a plain text email. `Mail.to('ann@example.com').cc(...).bcc(...).send(mailable)` adds recipients with chained calls. It also has `queue()`, `later()` and `raw()`. Addresses can be plain email text. `Address.list()` reads an `Address`, an email text, or a list of these.
 - Docs: how to attach a file from a storage disk, with `Attachment(bytes, name)`.
-
 - Fix: in `FailoverTransport`, an `onError` callback that throws stopped the failover, so the next transports were never tried. Now an error from `onError` is ignored: the next transport is still tried, and the send error is thrown as before.
 - Fix: the `assertSentCount` error said "Expected 1 sent emails". Now it says "Expected 1 sent email".
 - Docs: with both `Mail.fake()` and `Queue.fake()` on, `Mail.fake()` catches queued emails first.
