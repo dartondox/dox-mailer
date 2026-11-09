@@ -1,6 +1,7 @@
 ## Unreleased
 
 - Fix: when an `onSent` hook threw in a queue worker with `tries` above 1, the job failed after the email was sent. The worker then sent the email again. Now an `onSent` error is logged and `send()` does not throw. The other `onSent` hooks still run.
+- Docs: start `setup()` with `Mail.clearHooks()`. Hooks are kept in a list, so when `setup()` runs twice in one isolate, each hook runs twice.
 
 ## 3.1.0
 

@@ -248,7 +248,8 @@ class MailMessage extends Mailable {
 const String _mdChars = r'\`*[]#|';
 
 /// [value] with the text in it masked, see [_mdChars]. Maps, sets,
-/// other iterables (as lists) and objects with `toJson()` are copied. Other values stay as they are.
+/// other iterables (as lists) and objects with `toJson()` are copied.
+/// Other values stay as they are.
 Object? _maskData(Object? value, int depth) {
   // ponytail: deep data is left as it is, so a map that holds itself
   // does not loop forever

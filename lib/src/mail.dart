@@ -116,8 +116,11 @@ class Mail {
   ///
   /// Each isolate has its own hooks. Add them in `setup()` of your mail
   /// provider, after `super.setup()`, like [alwaysTo]. A hook added in
-  /// `main()` does not run for queued emails.
+  /// `main()` does not run for queued emails. The hooks are kept in a
+  /// list, so start `setup()` with [clearHooks]: then a second `setup()`
+  /// in the same isolate does not add each hook twice.
   /// ```
+  /// Mail.clearHooks();
   /// Mail.onSending((Message message) => print('to ${message.to}'));
   /// ```
   static void onSending(FutureOr<void> Function(Message message) hook) {
