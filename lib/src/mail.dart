@@ -265,8 +265,9 @@ void _logSentHookError(Object error, StackTrace stack) {
   String text = 'Mail: an onSent hook threw. The email was sent: $error';
   try {
     Logger.danger(text, '$stack');
-  } on Error {
-    // no `Dox().initialize()`, so no Logger
+  } catch (_) {
+    // the Logger failed (eg. no `Dox().initialize()`). It can throw an
+    // Error or an Exception: catch both, so the send does not fail.
     stderr.writeln('$text\n$stack');
   }
 }
