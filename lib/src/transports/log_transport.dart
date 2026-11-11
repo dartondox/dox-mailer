@@ -14,7 +14,9 @@ class LogTransport extends Transport {
   /// [output] gets the text. Null: `print`.
   ///
   /// [useLogger] true: write the text with `Logger.info`, the app log.
-  /// It then follows the logger settings, eg. `LoggerConfig.enabled`.
+  /// The logger is off by default: set `LoggerConfig(enabled: true)`, or
+  /// nothing is written. The logger level must allow `info`.
+  /// When the logger throws (eg. Dox is not set up), the text is printed.
   /// [output] wins when both are set.
   ///
   /// [bothBodies] true: show the text body and the HTML body when the
@@ -24,12 +26,22 @@ class LogTransport extends Transport {
     void Function(String text)? output,
     bool useLogger = false,
     this.bothBodies = false,
-  }) : _output = output ?? (useLogger ? Logger.info : print);
+  }) : _output = output ?? (useLogger ? _logOrPrint : print);
 
   final void Function(String text) _output;
 
   /// show both the text and the HTML body
   final bool bothBodies;
+
+  /// a log transport must not make `send()` fail, so a logger error
+  /// prints the text instead. Same as the `onSent` hook error in `Mail`.
+  static void _logOrPrint(String text) {
+    try {
+      Logger.info(text);
+    } catch (_) {
+      print(text);
+    }
+  }
 
   @override
   Future<SentMessage> send(Message message) async {
