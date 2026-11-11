@@ -1,3 +1,5 @@
+import 'package:dox_core/dox_core.dart' show Logger;
+
 import '../attachment.dart';
 import '../message.dart';
 import '../transport.dart';
@@ -6,13 +8,28 @@ import '../header_check.dart';
 /// Prints the message and sends nothing. Good for local work.
 /// ```
 /// 'log': LogTransport(),
+/// 'log': LogTransport(useLogger: true, bothBodies: true),
 /// ```
 class LogTransport extends Transport {
   /// [output] gets the text. Null: `print`.
-  LogTransport({void Function(String text)? output})
-    : _output = output ?? print;
+  ///
+  /// [useLogger] true: write the text with `Logger.info`, the app log.
+  /// It then follows the logger settings, eg. `LoggerConfig.enabled`.
+  /// [output] wins when both are set.
+  ///
+  /// [bothBodies] true: show the text body and the HTML body when the
+  /// message has both. False: show only the text body, or the HTML body
+  /// when there is no text.
+  LogTransport({
+    void Function(String text)? output,
+    bool useLogger = false,
+    this.bothBodies = false,
+  }) : _output = output ?? (useLogger ? Logger.info : print);
 
   final void Function(String text) _output;
+
+  /// show both the text and the HTML body
+  final bool bothBodies;
 
   @override
   Future<SentMessage> send(Message message) async {
@@ -36,7 +53,14 @@ class LogTransport extends Transport {
       );
     }
     out.writeln();
-    out.writeln(message.text ?? message.html);
+    if (bothBodies && message.text != null && message.html != null) {
+      out.writeln('--- text ---');
+      out.writeln(message.text);
+      out.writeln('--- html ---');
+      out.writeln(message.html);
+    } else {
+      out.writeln(message.text ?? message.html);
+    }
     out.write('--- end ---');
     _output(out.toString());
     return SentMessage(message);
