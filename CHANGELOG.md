@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Ships an AI agent skill (dox-mailer-guide). Install it in your app with `dart run skills@ get`.
 - Requires Dart 3.14 or newer.
 - New: `LogTransport(useLogger: true)` writes each email to the app log with `Logger.info`, not with `print`.
 - New: `LogTransport(bothBodies: true)` shows the text body and the HTML body when an email has both.
