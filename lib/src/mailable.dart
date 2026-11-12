@@ -7,7 +7,7 @@ import 'mail.dart';
 import 'mailer.dart';
 import 'message.dart';
 
-/// One kind of email in its own class, like a Laravel mailable.
+/// One kind of email in its own class.
 /// Override the getters you need. The body comes from [html] and
 /// [text], from the dox_view templates [view] and [textView], or from
 /// the Markdown template [markdown].
@@ -134,8 +134,7 @@ abstract class Mailable {
   Mailer get _mailer => Mail.mailer(mailer);
 }
 
-/// A simple email made of lines and one button, like the `MailMessage`
-/// of Laravel notifications. No template needed.
+/// A simple email made of lines and one button. No template needed.
 /// ```
 /// MailMessage(subject: 'Invoice paid')
 ///   ..line('We got your payment.')
@@ -316,9 +315,9 @@ String _unmaskUrlChar(Match match) => _mdChars[int.parse(match[1]!)];
 
 /// [markdown] as HTML, with GitHub tables and lists. Links and images
 /// with an unsafe scheme, like `javascript:` or `data:`, lose their URL.
-/// Laravel does the same (`allow_unsafe_links` is off).
+/// Dox removes the unsafe URL itself.
 ///
-/// It is CommonMark with tables, like Laravel mail. There are no GFM
+/// It is CommonMark with tables. There are no GFM
 /// autolinks: a bare URL stays text. Write `<url>` or `[text](url)`.
 ///
 /// With [html] false, raw HTML shows as text, eg. for `MailMessage`

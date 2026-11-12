@@ -5,8 +5,8 @@ import 'mailable.dart';
 import 'mailer.dart';
 import 'message.dart';
 
-/// A message to a user (a notifiable) over one or more channels, like a
-/// Laravel notification. [via] picks the channels.
+/// A message to a user (a notifiable) over one or more channels.
+/// [via] picks the channels.
 /// ```
 /// class InvoicePaid extends Notification {
 ///   InvoicePaid(this.invoiceId);
