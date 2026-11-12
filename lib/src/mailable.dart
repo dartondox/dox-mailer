@@ -315,7 +315,7 @@ String _unmaskUrlChar(Match match) => _mdChars[int.parse(match[1]!)];
 
 /// [markdown] as HTML, with GitHub tables and lists. Links and images
 /// with an unsafe scheme, like `javascript:` or `data:`, lose their URL.
-/// This is the same as the `allow_unsafe_links` option being off.
+/// Dox removes the unsafe URL itself.
 ///
 /// It is CommonMark with tables. There are no GFM
 /// autolinks: a bare URL stays text. Write `<url>` or `[text](url)`.
