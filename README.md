@@ -203,7 +203,7 @@ await Mail.send(Message(to: to, subject: 'Welcome', html: html));
 
 Sending an email can take a second or more. With a queue, the request does not wait. A queue worker sends the email later.
 
-This uses [dox_queue](https://pub.dev/packages/dox_queue), which dox_mailer depends on. You only need the dox_queue `QueueProvider` and a worker. The mail jobs (`SendQueuedMail` and `SendEncryptedQueuedMail`) are part of dox_mailer. `Mail.configure()` registers them, so the worker can read them. Then:
+This uses [dox_queue](https://pub.dev/packages/dox_queue), which dox_mailer depends on. You only need the dox_queue `QueueProvider` and a worker. The mail jobs (`SendQueuedMail` and `SendEncryptedQueuedMail`) are part of dox_mailer. `Mail.configure()` registers them, so the worker can read them. The worker (`bin/queue.dart`) must also run `MailProvider`, or the mail jobs fail (also the ones saved by 3.1). Then:
 
 ```dart
 await Mail.queue(message);

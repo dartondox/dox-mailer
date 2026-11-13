@@ -146,6 +146,13 @@ void main() {
     expect(Mail.mailQueue, same(custom));
   });
 
+  test('Mail.useQueue(null) goes back to the dox_queue queue', () {
+    Mail.useQueue(_CustomQueue());
+    addTearDown(() => Mail.useQueue(null));
+    Mail.useQueue(null);
+    expect(Mail.mailQueue, isA<QueueMailQueue>());
+  });
+
   test(
     'Mail.fake() wins over Queue.fake(), restore gives the queue back',
     () async {
