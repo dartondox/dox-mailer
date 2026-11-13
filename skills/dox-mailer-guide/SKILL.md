@@ -221,7 +221,7 @@ When a channel fails, the others still run. `Notification.send()` then throws a 
 
 ### 7. Queue an email
 
-Uses `dox_queue` (a dependency of dox_mailer). Add the dox_queue `QueueProvider` and run a worker. The worker sends the finished email. The mail jobs are in dox_mailer, and `Mail.configure()` registers them. The worker (`bin/queue.dart`) must also run `MailProvider`, or the mail jobs fail (also the ones saved by 3.1).
+Uses `dox_queue` (a dependency of dox_mailer). Add the dox_queue `QueueProvider` and run a worker. The worker sends the finished email. The mail jobs are in dox_mailer. `build_runner` with `dox_builder` adds them to `lib/generated/jobs.g.dart`. The worker (`bin/queue.dart`) must still run `MailProvider`: the job sends with the mail config that `MailProvider` sets up. Without it, the job fails with "Mail is not set up".
 
 ```dart
 String jobId = await Mail.queue(message);

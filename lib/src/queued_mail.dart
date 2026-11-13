@@ -8,8 +8,10 @@ import 'message.dart';
 /// The built-in job of `Mail.queue()` and `Mail.later()`. It sends a
 /// saved [message] with the mailer [mailer].
 ///
-/// Apps do not dispatch it. It is not in `lib/generated/jobs.g.dart`:
-/// `Mail.configure()` adds it to [JobRegistry.builtIn].
+/// Apps do not dispatch it. dox_builder lists it in
+/// `lib/generated/jobs.g.dart`, and `Mail.configure()` adds it to
+/// [JobRegistry.builtIn] too. It needs the mail config at run time, so the
+/// worker still runs `MailProvider`.
 ///
 /// It is exported for tests. With `Queue.fake()`, check a queued email
 /// with `queue.assertPushed<SendQueuedMail>()`. It also matches a mail of
