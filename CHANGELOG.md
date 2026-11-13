@@ -3,7 +3,7 @@
 - Breaking: the queued mail classes `SendQueuedMail`, `SendEncryptedQueuedMail`, `RedactedMailError` and `QueueMailQueue` are now in dox_mailer. Import them from `package:dox_mailer/dox_mailer.dart`, not from dox_queue. The saved job names stay `dox_queue:SendQueuedMail` and `dox_queue:SendEncryptedQueuedMail`.
 - Breaking: dox_mailer now depends on dox_queue.
 - `Mail.mailQueue` falls back to `QueueMailQueue`, so `Mail.queue()` and `Mail.later()` use the dox_queue queue by default. There is no `StateError` when no queue was set. `Mail.useQueue(null)` goes back to it. The app needs the `QueueProvider` and a worker.
-- `Mail.configure()` registers the mail jobs, so the worker can read them.
+- `Mail.configure()` registers the mail jobs, so the worker can read them. So a `bin/queue.dart` worker needs `MailProvider` in its providers to run mail jobs, also the mail jobs that 3.1 saved. Without it the job fails with an unknown job name.
 - Breaking: dox_mailer does not import `dox_core` any more. `dox_view` still uses it. `MailProvider` uses `DoxProvider` from `dox_annotation`.
 - Breaking: the log transport always prints with `print`. `LogTransport(useLogger:)` is removed. An `onSent` hook error goes to `stderr`, not to the Dox `Logger`.
 - Ships an AI agent skill (dox-mailer-guide). Install it in your app with `dart run skills@ get`.
