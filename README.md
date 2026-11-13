@@ -203,7 +203,7 @@ await Mail.send(Message(to: to, subject: 'Welcome', html: html));
 
 Sending an email can take a second or more. With a queue, the request does not wait. A queue worker sends the email later.
 
-This needs [dox_queue](https://pub.dev/packages/dox_queue). Set up its config, its provider and a worker first. Then:
+This uses [dox_queue](https://pub.dev/packages/dox_queue), which dox_mailer depends on. You only need the dox_queue `QueueProvider` and a worker. The mail jobs (`SendQueuedMail` and `SendEncryptedQueuedMail`) are part of dox_mailer. `Mail.configure()` registers them, so the worker can read them. Then:
 
 ```dart
 await Mail.queue(message);
@@ -216,6 +216,8 @@ await Mail.mailer('ses').queue(message, queue: 'emails');
 ```
 
 `queue()` and `later()` return the job id.
+
+By default they use the dox_queue queue. To use another queue, call `Mail.useQueue(queue)`. `Mail.useQueue(null)` goes back to the dox_queue queue.
 
 - The message is checked at once. A bad message fails in the request, not in the worker.
 - The default from and reply-to addresses are added at once.
@@ -250,7 +252,7 @@ expect(mail.sent, isEmpty);
 
 Each `QueuedMessage` has the `message`, the `mailer` name, the job `id`, the `delay`, the `queue` name and `encrypt`.
 
-With both `Mail.fake()` and `Queue.fake()` (dox_queue) on, `Mail.fake()` catches the queued email first. It goes to `mail.queued`, and `Queue.fake()` does not see a job. To check the mail job with `Queue.fake()`, do not call `Mail.fake()`.
+With both `Mail.fake()` and `Queue.fake()` (dox_queue) on, `Mail.fake()` catches the queued email first. It goes to `mail.queued`, and `Queue.fake()` does not see a job. To check the mail job with `Queue.fake()`, do not call `Mail.fake()`. `Queue.fake()` catches `Mail.queue()` on the default queue. It does not catch a custom queue set with `Mail.useQueue()`.
 
 ## Transports
 

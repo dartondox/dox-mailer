@@ -31,6 +31,7 @@ siblings=(
   "ioredis ioredis:."
   "dox-http-native dox_http_native:."
   "dox-view dox_view:."
+  "dox-queue dox_queue:packages/dox-queue"
 )
 
 if [ "${GITHUB_REF_TYPE:-}" = tag ]; then

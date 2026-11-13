@@ -459,7 +459,7 @@ With `shouldQueue`, the email goes to `mail.queued`, not to `mail.sent`.
 
 Sending an email can take a second or more. With a queue, the request does not wait. A queue worker sends the email later.
 
-This needs [dox_queue](https://pub.dev/packages/dox_queue). Set up its config, its provider and a worker first. Then:
+This uses [dox_queue](https://pub.dev/packages/dox_queue), which dox_mailer depends on. You only need the dox_queue `QueueProvider` and a worker. The mail jobs (`SendQueuedMail` and `SendEncryptedQueuedMail`) are part of dox_mailer. `Mail.configure()` registers them, so the worker can read them. Then:
 
 ```dart
 await Mail.queue(message);
@@ -472,6 +472,8 @@ await Mail.mailer('ses').queue(message, queue: 'emails');
 ```
 
 `queue()` and `later()` return the job id.
+
+By default they use the dox_queue queue. To use another queue, call `Mail.useQueue(queue)`. `Mail.useQueue(null)` goes back to the dox_queue queue. `Queue.fake()` catches `Mail.queue()` on the default queue, not a custom queue set with `Mail.useQueue()`.
 
 - The message is checked at once. A bad message fails in the request, not in the worker.
 - The default from and reply-to addresses are added at once.
