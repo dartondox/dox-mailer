@@ -33,8 +33,9 @@ class Mail {
       <FutureOr<void> Function(SentMessage sent)>[];
 
   /// Use [config]. Mailers of an old config are not closed. It also adds
-  /// the jobs of [queue] to the job registry of dox_queue, so a queue
-  /// worker can read them.
+  /// the jobs of [queue] to the job registry of dox_queue. `jobs.g.dart`
+  /// of dox_builder lists them too; this is the fallback for a registry
+  /// made without it.
   static void configure(MailConfig config) {
     _config = config;
     _mailers.clear();
