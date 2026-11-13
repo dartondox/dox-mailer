@@ -47,6 +47,9 @@ class MailerInstallCommand extends Command {
       return;
     }
     Installer installer = Installer(root: root, runner: runner);
+    String asked = transport;
+    transport = _keptTransport(installer, transport);
+    bool kept = transport != asked;
 
     await installer.addDependency('dox_core');
     await installer.addDependency('dox_builder', dev: true);
@@ -73,7 +76,7 @@ class MailerInstallCommand extends Command {
 
     await installer.buildRunner();
     installer.printSummary(<String>[
-      if (transport != 'log')
+      if (transport != 'log' && !kept)
         'Fill in the $transport keys in .env. Set MAIL_MAILER=log to print '
             'emails instead of sending them.',
       'Send one: `await Mail.send(Message(to: <Address>[Address(...)], '
@@ -95,6 +98,23 @@ class MailerInstallCommand extends Command {
       }
     }
     return transports.contains(transport) ? transport : null;
+  }
+
+  /// the transport of a `lib/config/mail.dart` that is already there, so a
+  /// second run with another `--transport` does not add the keys of a
+  /// transport that the config does not have. [transport] when there is no
+  /// config, or no `MAIL_MAILER` default in it.
+  String _keptTransport(Installer installer, String transport) {
+    File config = File('${installer.root.path}/lib/config/mail.dart');
+    if (!config.existsSync()) return transport;
+    RegExpMatch? kept = RegExp(r'''MAIL_MAILER',\s*['"](\w+)['"]''')
+        .firstMatch(config.readAsStringSync());
+    if (kept == null || kept.group(1) == transport) return transport;
+    installer.note(
+      'skipped  transport: lib/config/mail.dart already exists, '
+      'set the transport there',
+    );
+    return transports.contains(kept.group(1)) ? kept.group(1)! : transport;
   }
 
   /// the `.env` keys of [transport]

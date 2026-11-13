@@ -162,4 +162,16 @@ void main() {
     expect(read('.env'), startsWith(env));
     expect(read('.env'), isNot(contains('hello@example.com')));
   });
+
+  test(
+    'another transport on a second run keeps the config and its keys',
+    () async {
+      await install(<String>['--transport=smtp']);
+      Map<String, String> before = snapshot();
+      await install(<String>['--transport=resend']);
+      expect(snapshot(), before);
+      expect(read('.env'), isNot(contains('RESEND')));
+      expect(read('lib/config/mail.dart'), contains("'MAIL_MAILER', 'smtp'"));
+    },
+  );
 }
