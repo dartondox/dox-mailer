@@ -1,4 +1,4 @@
-import 'package:dox_annotation/dox_annotation.dart';
+import 'package:dox_annotation/provider.dart';
 
 import 'mail.dart';
 import 'mail_config.dart';
