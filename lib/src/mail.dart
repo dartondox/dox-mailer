@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io' show stderr;
 
-import 'package:dox_core/dox_core.dart' show Logger;
-
 import 'address.dart';
 import 'mail_config.dart';
 import 'mail_queue.dart';
@@ -264,11 +262,9 @@ Future<SentMessage> sendMessage(Transport transport, Message message) async {
 void _logSentHookError(Object error, StackTrace stack) {
   String text = 'Mail: an onSent hook threw. The email was sent: $error';
   try {
-    Logger.danger(text, '$stack');
-  } catch (_) {
-    // the Logger failed (eg. no `Dox().initialize()`). It can throw an
-    // Error or an Exception: catch both, so the send does not fail.
     stderr.writeln('$text\n$stack');
+  } catch (_) {
+    // a closed stderr must not make `send()` fail after the email was sent
   }
 }
 

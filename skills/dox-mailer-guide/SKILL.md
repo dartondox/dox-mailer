@@ -274,7 +274,7 @@ Mail.restore();
 - `MailgunTransport(apiKey:, domain:, region: MailgunRegion.eu)`.
 - `PostmarkTransport(serverToken:, messageStream:)`.
 - `SendmailTransport(path:, mode: SendmailMode.smtp)` or `SendmailMode.pipe`.
-- `LogTransport(useLogger:, bothBodies:, output:)` and `ArrayTransport()`.
+- `LogTransport(bothBodies:, output:)` and `ArrayTransport()`.
 - `FailoverTransport(<Transport>[ses, smtp], onError: ...)` tries each in order and throws the last error.
 
 ## Gotchas
@@ -288,4 +288,3 @@ Mail.restore();
 - `{{ }}` in Markdown mail escapes user text. Raw HTML like `<a href="{{ url }}">` is not checked. Use only URLs your app builds. `MailMessage.action()` throws an `ArgumentError` for an unsafe URL.
 - Do not indent Markdown inside `@if` or `@each`. Four spaces make a code block.
 - With `starttls`, the send fails if the server has no STARTTLS. Your password is never sent in plain text.
-- `LogTransport(useLogger: true)` writes nothing unless the logger is enabled with `LoggerConfig(enabled: true)`.
