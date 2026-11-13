@@ -7,7 +7,6 @@
 - Breaking: dox_mailer does not import `dox_core` any more. `dox_view` still uses it. `MailProvider` uses `DoxProvider` from `dox_annotation`.
 - Breaking: the log transport always prints with `print`. `LogTransport(useLogger:)` is removed. An `onSent` hook error goes to `stderr`, not to the Dox `Logger`.
 - Ships an AI agent skill (dox-mailer-guide). Install it in your app with `dart run skills@ get`.
-- Requires Dart 3.14 or newer.
 - New: `LogTransport(bothBodies: true)` shows the text body and the HTML body when an email has both.
 - Fix: when an `onSent` hook threw and the logger also threw an `Exception` (not an `Error`), `send()` failed after the email was sent. Now the error goes to stderr, and `send()` does not throw.
 - Fix: when an `onSent` hook threw in a queue worker with `tries` above 1, the job failed after the email was sent. The worker then sent the email again. Now an `onSent` error is logged and `send()` does not throw. The other `onSent` hooks still run.
