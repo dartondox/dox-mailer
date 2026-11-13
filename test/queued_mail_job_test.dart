@@ -146,6 +146,26 @@ void main() {
     expect(Mail.mailQueue, same(custom));
   });
 
+  test(
+    'Mail.fake() wins over Queue.fake(), restore gives the queue back',
+    () async {
+      _CustomQueue custom = _CustomQueue();
+      Mail.useQueue(custom);
+      addTearDown(() => Mail.useQueue(null));
+      QueueFake queue = Queue.fake();
+      addTearDown(Queue.restore);
+      ArrayTransport mail = Mail.fake();
+      await Mail.queue(_message());
+      expect(mail.queued, hasLength(1));
+      queue.assertNothingPushed();
+      Mail.restore();
+      expect(Mail.mailQueue, same(custom));
+      Mail.useQueue(null);
+      await Mail.queue(_message());
+      queue.assertPushedTimes<SendQueuedMail>(1);
+    },
+  );
+
   test('with the sync driver, Mail.queue sends at once', () async {
     Queue.configure(QueueConfig());
     await Mail.mailer('other').queue(_message());
@@ -156,6 +176,24 @@ void main() {
   group('a queue with a worker', () {
     setUp(() {
       Queue.configure(QueueConfig(driver: 'memory'));
+    });
+
+    test('a plain mail job saved by 3.1 still sends', () async {
+      await Queue.driver.push(JobPayload.decode(_saved31Plain));
+      JobPayload payload = await _work();
+      expect(payload.job, 'dox_queue:SendQueuedMail');
+      Message sent = mainMailer.messages.single;
+      expect(sent.subject, 'Old job');
+      expect(sent.text, 'Saved by 3.1');
+      expect(await Queue.driver.failed(), isEmpty);
+    });
+
+    test('an encrypted mail job saved by 3.1 still sends', () async {
+      await Queue.driver.push(JobPayload.decode(_saved31Encrypted));
+      JobPayload payload = await _work();
+      expect(payload.job, 'dox_queue:SendEncryptedQueuedMail');
+      expect(mainMailer.messages.single.subject, 'Old job');
+      expect(await Queue.driver.failed(), isEmpty);
     });
 
     test('Mail.queue saves the mail, the worker sends it', () async {
@@ -261,6 +299,30 @@ void main() {
     });
   });
 }
+
+/// A mail job as dox_queue 3.1 saved it (`JobPayload.encode()`), with
+/// the job name and data of 3.1.
+const String _saved31Plain =
+    '{"id":"0123456789abcdef0123456789abcdef",'
+    '"job":"dox_queue:SendQueuedMail","queue":"default",'
+    '"data":"{\\"mailer\\":\\"main\\",\\"message\\":{\\"from\\":null,'
+    '\\"to\\":[{\\"email\\":\\"ann@example.com\\",\\"name\\":null}],'
+    '\\"cc\\":[],\\"bcc\\":[],\\"replyTo\\":[],\\"subject\\":\\"Old job\\",'
+    '\\"text\\":\\"Saved by 3.1\\",\\"html\\":null,\\"attachments\\":[],'
+    '\\"headers\\":{},\\"tags\\":[],\\"metadata\\":{}}}",'
+    '"attempts":0}';
+
+/// The same mail with `encrypt: true`, encrypted with the app key
+/// `'k' * 32`, as dox_queue 3.1 saved it.
+const String _saved31Encrypted =
+    '{"id":"fedcba9876543210fedcba9876543210",'
+    '"job":"dox_queue:SendEncryptedQueuedMail","queue":"default",'
+    '"data":"IPB+h2NNwltf83cWykAIkmPv1aZ/JG8qF81RAGEduCnLJQGdXShrHXC9nUf/viPe'
+    'qp31wkgrgcQBV0UdaVSdfeSKBJCn2wd7XweJ47GMlH+pQLU4cGJS2qQDjJ9lh8Xj68XseLGY'
+    'D1WDbBIhnRo1ib7vl+yoCsVE9OqzHpv1oMD9NcXH5e5HSYB0dzxHez1NOVak5KaTHmqqoqLP'
+    'Lfw2WDR6CVz3WiTiXzlzlCx+yc+9O1uUfZytFQzV/FrIxbV4khHz0I+NsTUTvMTLIhrdm68n'
+    '4Npf4JKskax/hh8wzUdSeyrazucdZbtm8/ZWmiY/HoeRsVuq5CHbSBNYTm4=",'
+    '"attempts":0}';
 
 /// the encrypted details of a [RedactedMailError] text
 final RegExp _encrypted = RegExp(r'Details are encrypted: [^\s"]+');
