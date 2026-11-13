@@ -2,7 +2,7 @@
 
 You write a `Message` and call `Mail.send()`. A transport sends it. You pick the transport in a config file, so you can change providers with no code change.
 
-The package has its own SMTP client, AWS signer and MIME builder. It only needs `dox_view`, `markdown`, `http` and `crypto`.
+The package has its own SMTP client, AWS signer and MIME builder. It does not import `dox_core` itself, but `dox_view` still uses it. It needs `dox_view`, `markdown`, `http` and `crypto`.
 
 ## Install
 

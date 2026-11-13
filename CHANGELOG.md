@@ -1,6 +1,6 @@
 ## Unreleased
 
-- Breaking: no `dox_core` dependency any more. `MailProvider` uses `DoxProvider` from `dox_annotation`.
+- Breaking: dox_mailer does not import `dox_core` any more. `dox_view` still uses it. `MailProvider` uses `DoxProvider` from `dox_annotation`.
 - Breaking: the log transport always prints with `print`. `LogTransport(useLogger:)` is removed. An `onSent` hook error goes to `stderr`, not to the Dox `Logger`.
 - Ships an AI agent skill (dox-mailer-guide). Install it in your app with `dart run skills@ get`.
 - Requires Dart 3.14 or newer.

@@ -12,7 +12,9 @@ class _Stderr implements Stdout {
   void writeln([Object? object = '']) => text.writeln(object);
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => null;
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnimplementedError('stderr.${invocation.memberName} is not faked');
+  }
 }
 
 /// a stderr that always fails, like a closed pipe
@@ -21,7 +23,9 @@ class _BrokenStderr implements Stdout {
   void writeln([Object? object = '']) => throw const FormatException('closed');
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => null;
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnimplementedError('stderr.${invocation.memberName} is not faked');
+  }
 }
 
 void _throwingHook(SentMessage sent) => throw StateError('hook failed');

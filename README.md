@@ -6,7 +6,7 @@ You write a `Message` and call `Mail.send()`. A transport sends it. You pick the
 
 It also has mailables (one class per email, with dox_view or Markdown templates) and notifications (one message, sent on mail or your own channels).
 
-The package has its own SMTP client, AWS signer and MIME builder. It only needs `dox_view`, `markdown`, `http` and `crypto`.
+The package has its own SMTP client, AWS signer and MIME builder. It does not import `dox_core` itself, but `dox_view` still uses it. It needs `dox_view`, `markdown`, `http` and `crypto`.
 
 ## Install
 
