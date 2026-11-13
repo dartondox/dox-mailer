@@ -221,7 +221,7 @@ When a channel fails, the others still run. `Notification.send()` then throws a 
 
 ### 7. Queue an email
 
-Needs `dox_queue` set up (config, `QueueProvider`, a worker). The worker sends the finished email.
+Uses `dox_queue` (a dependency of dox_mailer). Add the dox_queue `QueueProvider` and run a worker. The worker sends the finished email. The mail jobs are in dox_mailer, and `Mail.configure()` registers them. The worker (`bin/queue.dart`) must also run `MailProvider`, or the mail jobs fail (also the ones saved by 3.1).
 
 ```dart
 String jobId = await Mail.queue(message);
@@ -229,7 +229,7 @@ await Mail.later(Duration(minutes: 10), message);
 await Mail.mailer('ses').queue(message, queue: 'emails', encrypt: true);
 ```
 
-Options: `queue` (default `default`), `encrypt` (default `false`). The whole email, with attachments in base64, is stored in Redis or the `jobs` table. Keep attachments small. Use `encrypt: true` when others can read the store.
+Options: `queue` (default `default`), `encrypt` (default `false`). The whole email, with attachments in base64, is stored in Redis or the `jobs` table. Keep attachments small. Use `encrypt: true` when others can read the store. `Mail.useQueue(queue)` sets another queue (`null`: back to the dox_queue queue).
 
 ### 8. Staging safety and hooks
 
@@ -282,7 +282,7 @@ Mail.restore();
 - Always `await` the send. It throws a `MailException` (with `statusCode` and `body`) when the provider refuses it.
 - The default mailer is `log`. If `MAIL_MAILER` is not set, nothing is really sent.
 - `Mail.send` before `Mail.configure` throws a `StateError`. Add the provider.
-- `Mail.queue` without `dox_queue` throws a `StateError`.
+- `Queue.fake()` catches `Mail.queue()` on the default queue, not a custom queue from `Mail.useQueue()`.
 - `Mail.mailer('x')` with an unknown name throws an `ArgumentError`.
 - `queue()` and `later()` render templates at once. The worker needs no templates.
 - `{{ }}` in Markdown mail escapes user text. Raw HTML like `<a href="{{ url }}">` is not checked. Use only URLs your app builds. `MailMessage.action()` throws an `ArgumentError` for an unsafe URL.

@@ -7,6 +7,7 @@ import 'mail_queue.dart';
 import 'mailable.dart';
 import 'mailer.dart';
 import 'message.dart';
+import 'queued_mail.dart';
 import 'transport.dart';
 import 'transports/array_transport.dart';
 
@@ -31,10 +32,13 @@ class Mail {
   static final List<FutureOr<void> Function(SentMessage sent)> _sent =
       <FutureOr<void> Function(SentMessage sent)>[];
 
-  /// Use [config]. Mailers of an old config are not closed.
+  /// Use [config]. Mailers of an old config are not closed. It also adds
+  /// the jobs of [queue] to the job registry of dox_queue, so a queue
+  /// worker can read them.
   static void configure(MailConfig config) {
     _config = config;
     _mailers.clear();
+    QueueMailQueue.addJobs();
   }
 
   static MailConfig get config {
@@ -160,24 +164,18 @@ class Mail {
     return mailer().later(delay, message, queue: queue, encrypt: encrypt);
   }
 
-  /// Use [queue] for [Mail.queue] and [Mail.later]. dox_queue calls it
-  /// in `Queue.configure()`. Null: no queue.
+  /// Use [queue] for [Mail.queue] and [Mail.later], eg. in a test.
+  /// Null: the dox_queue queue ([QueueMailQueue]).
   static void useQueue(MailQueue? queue) {
     _queue = queue;
   }
 
-  /// The queue of [useQueue]. While [fake] is on, it is the fake, so
-  /// queued messages go to `ArrayTransport.queued`. Throws a
-  /// [StateError] when there is none.
+  /// The queue of [Mail.queue]: the one of [useQueue], else the dox_queue
+  /// queue ([QueueMailQueue]). While [fake] is on, it is the fake, so
+  /// queued messages go to `ArrayTransport.queued`. With `Queue.fake()`
+  /// of dox_queue, the mails go to that fake.
   static MailQueue get mailQueue {
-    MailQueue? value = _fake ?? _queue;
-    if (value == null) {
-      throw StateError(
-        'Mail.queue() needs a job queue. Add the dox_queue package and a '
-        'QueueProvider to your app, or call Queue.configure() first',
-      );
-    }
-    return value;
+    return _fake ?? _queue ?? const QueueMailQueue();
   }
 
   /// The mailer [name] of the config. Null: the default mailer.
