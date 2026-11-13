@@ -6,7 +6,7 @@ You write a `Message` and call `Mail.send()`. A transport sends it. You pick the
 
 It also has mailables (one class per email, with dox_view or Markdown templates) and notifications (one message, sent on mail or your own channels).
 
-The package has its own SMTP client, AWS signer and MIME builder. Next to `dox_core`, it only needs `dox_view`, `markdown`, `http` and `crypto`.
+The package has its own SMTP client, AWS signer and MIME builder. It only needs `dox_view`, `markdown`, `http` and `crypto`.
 
 ## Install
 
@@ -401,13 +401,12 @@ Prints each email and sends nothing. Good for local work.
 
 Pass `output` to print somewhere else, eg. `LogTransport(output: stderr.writeln)` (from `dart:io`).
 
-Two options, both off by default:
+One option, off by default:
 
-- `useLogger: true` writes each email to the app log with `Logger.info`, not with `print`. The logger is off by default: set `LoggerConfig(enabled: true)`, or nothing is written. The logger level must allow `info`. When the logger throws (eg. Dox is not set up), the email is printed.
 - `bothBodies: true` shows the text body and the HTML body when the email has both. When it is off, only the text body is shown.
 
 ```dart
-'log': LogTransport(useLogger: true, bothBodies: true),
+'log': LogTransport(bothBodies: true),
 ```
 
 ### Array

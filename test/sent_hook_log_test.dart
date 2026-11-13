@@ -1,14 +1,27 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:dox_core/dox_core.dart' show AppConfig, Dox, LoggerConfig;
 import 'package:dox_mailer/dox_mailer.dart';
 import 'package:test/test.dart';
 
-// Own file: it turns on the Dox logger, and other tests need it off.
+/// a stderr that keeps the text
+class _Stderr implements Stdout {
+  final StringBuffer text = StringBuffer();
 
-/// a print that fails, so the Logger throws an Exception (not an Error)
-void _brokenPrint(Zone self, ZoneDelegate parent, Zone zone, String line) {
-  throw const FormatException('print is broken');
+  @override
+  void writeln([Object? object = '']) => text.writeln(object);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+/// a stderr that always fails, like a closed pipe
+class _BrokenStderr implements Stdout {
+  @override
+  void writeln([Object? object = '']) => throw const FormatException('closed');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 void _throwingHook(SentMessage sent) => throw StateError('hook failed');
@@ -23,30 +36,37 @@ Future<SentMessage> _send() {
   );
 }
 
-void main() {
-  test('an onSent hook error is not thrown when the logger throws an '
-      'Exception', () async {
-    Dox().initialize(
-      AppConfig(
-        appKey: 'k' * 32,
-        totalIsolate: 1,
-        logger: LoggerConfig(enabled: true),
-      ),
-    );
-    ArrayTransport main = ArrayTransport();
-    Mail.configure(
-      MailConfig(
-        defaultMailer: 'main',
-        from: const Address('app@example.com'),
-        mailers: <String, Transport>{'main': main},
-      ),
-    );
-    Mail.onSent(_throwingHook);
-    addTearDown(Mail.clearHooks);
+ArrayTransport _setUp() {
+  ArrayTransport main = ArrayTransport();
+  Mail.configure(
+    MailConfig(
+      defaultMailer: 'main',
+      from: const Address('app@example.com'),
+      mailers: <String, Transport>{'main': main},
+    ),
+  );
+  Mail.onSent(_throwingHook);
+  addTearDown(Mail.clearHooks);
+  return main;
+}
 
-    SentMessage sent = await runZoned(
+void main() {
+  test(
+    'an onSent hook error goes to stderr and send() does not throw',
+    () async {
+      ArrayTransport main = _setUp();
+      _Stderr err = _Stderr();
+      SentMessage sent = await IOOverrides.runZoned(_send, stderr: () => err);
+      expect(main.sent.single.messageId, sent.messageId);
+      expect(err.text.toString(), contains('hook failed'));
+    },
+  );
+
+  test('a broken stderr does not make send() throw', () async {
+    ArrayTransport main = _setUp();
+    SentMessage sent = await IOOverrides.runZoned(
       _send,
-      zoneSpecification: ZoneSpecification(print: _brokenPrint),
+      stderr: _BrokenStderr.new,
     );
     expect(main.sent.single.messageId, sent.messageId);
   });
