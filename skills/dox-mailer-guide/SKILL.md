@@ -9,7 +9,15 @@ description: Use when you send email in a Dox (Dart) app with dox_mailer. Covers
 
 For routes, controllers and app layout, see the `dox-core-guide` skill.
 
-## Install and register
+## Set up
+
+```bash
+dox add mailer [--transport=log|smtp|resend|mailgun|postmark|ses]
+```
+
+It adds the package, writes `lib/config/mail.dart` and the provider, adds the `MAIL_*` keys to `.env` and runs `build_runner`. The default transport is `log`: it prints emails and sends nothing. The steps below are the same by hand.
+
+## Install by hand
 
 1. Add the package:
 
