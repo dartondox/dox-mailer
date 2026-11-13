@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.0
 
 - New `dox mailer:install [--transport=log|smtp|resend|mailgun|postmark|ses]`, run by `dox add mailer`. It writes `lib/config/mail.dart` and the provider, adds the `MAIL_*` keys, and makes `resources/views/emails` when the app has `dox_view`. It never overwrites a file.
 - Breaking: the queued mail classes `SendQueuedMail`, `SendEncryptedQueuedMail`, `RedactedMailError` and `QueueMailQueue` are now in dox_mailer. Import them from `package:dox_mailer/dox_mailer.dart`, not from dox_queue. The saved job names stay `dox_queue:SendQueuedMail` and `dox_queue:SendEncryptedQueuedMail`.
