@@ -1,3 +1,7 @@
+## Unreleased
+
+- Change: the log line when an `onSent` hook throws now starts with `[mail]` (was `Mail:`).
+
 ## 3.2.0
 
 - New `dox mailer:install [--transport=log|smtp|resend|mailgun|postmark|ses]`, run by `dox add mailer`. It writes `lib/config/mail.dart` and the provider, adds the `MAIL_*` keys, and makes `resources/views/emails` when the app has `dox_view`. It never overwrites a file.
