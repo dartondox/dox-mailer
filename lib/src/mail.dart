@@ -259,7 +259,7 @@ Future<SentMessage> sendMessage(Transport transport, Message message) async {
 }
 
 void _logSentHookError(Object error, StackTrace stack) {
-  String text = 'Mail: an onSent hook threw. The email was sent: $error';
+  String text = '[mail] an onSent hook threw. The email was sent: $error';
   try {
     stderr.writeln('$text\n$stack');
   } catch (_) {
