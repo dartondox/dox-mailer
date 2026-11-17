@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.1
 
 - Change: the log line when an `onSent` hook throws now starts with `[mail]` (was `Mail:`).
 
