@@ -4,6 +4,7 @@ import 'mail_exception.dart';
 import 'message.dart';
 
 final RegExp _lineBreak = RegExp(r'[\r\n]');
+final RegExp _nonAscii = RegExp(r'[^\x00-\x7F]');
 
 /// Throws a [MailException] when a part of [message] has a CR or LF, so
 /// it could add new mail headers. It looks at the addresses and names,
@@ -20,6 +21,7 @@ void checkHeaders(Message message) {
     ...message.replyTo,
   ]) {
     _noLineBreak(address.email, 'the address "${address.email}"');
+    _ascii(address.email, 'the address "${address.email}"');
     _noLineBreak(address.name, 'the name of "${address.email}"');
   }
   _noLineBreak(message.subject, 'the subject');
@@ -32,11 +34,21 @@ void checkHeaders(Message message) {
   for (Attachment file in message.attachments) {
     _noLineBreak(file.contentType, 'the attachment "${file.filename}"');
     _noLineBreak(file.cid, 'the attachment "${file.filename}"');
+    _ascii(file.contentType, 'the content type of "${file.filename}"');
+    _ascii(file.cid, 'the cid of "${file.filename}"');
   }
 }
 
 void _noLineBreak(String? value, String what) {
   if (value != null && value.contains(_lineBreak)) {
     throw MailException('$what has a line break');
+  }
+}
+
+// These go into MIME headers as they are, and the MIME text must be ASCII.
+// Display names, subjects and file names are encoded, so they can be any text.
+void _ascii(String? value, String what) {
+  if (value != null && value.contains(_nonAscii)) {
+    throw MailException('$what has a character that is not ASCII');
   }
 }

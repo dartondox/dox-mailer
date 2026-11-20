@@ -66,6 +66,9 @@ class Address {
     if (!email.contains('@') || RegExp(r'[\s<>,;]').hasMatch(email)) {
       throw MailException('"$email" is not a valid email address');
     }
+    if (RegExp(r'[^\x00-\x7F]').hasMatch(email)) {
+      throw MailException('"$email" has a character that is not ASCII');
+    }
     if (name != null && RegExp(r'[\r\n]').hasMatch(name!)) {
       throw MailException('the name of "$email" has a line break');
     }

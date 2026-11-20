@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:dox_mailer/dox_mailer.dart';
+import 'package:dox_mailer/src/header_check.dart';
 import 'package:test/test.dart';
 
 MimeBuilder _builder() => MimeBuilder(
@@ -254,6 +255,39 @@ void main() {
           // the file name is encoded, so a line break in it is safe
           Attachment(<int>[1], 'a\r\nBcc: x@y.z.txt'),
         ],
+      ).check(),
+      returnsNormally,
+    );
+  });
+
+  test('non-ASCII address, cid and content type throw MailException', () {
+    expect(
+      () => Message(
+        from: const Address('app@example.com'),
+        to: <Address>[const Address('añn@example.com')],
+        text: 'x',
+      ).check(),
+      throwsA(isA<MailException>()),
+    );
+    expect(
+      () => const Address('añn@example.com').check(),
+      throwsA(isA<MailException>()),
+    );
+    for (Attachment file in <Attachment>[
+      Attachment(<int>[1], 'a.txt', contentType: 'text/plaïn'),
+      Attachment(<int>[1], 'a.png', cid: 'logö'),
+    ]) {
+      expect(
+        () => checkHeaders(_message(attachments: <Attachment>[file])),
+        throwsA(isA<MailException>()),
+      );
+    }
+    // a non-ASCII display name is encoded, so it still works
+    expect(
+      () => Message(
+        from: const Address('app@example.com', 'Ánn Lée'),
+        to: <Address>[const Address('bob@example.com', 'Bøb')],
+        text: 'x',
       ).check(),
       returnsNormally,
     );
