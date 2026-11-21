@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.2
 
 - Fix: an email address, attachment cid or content type with a character that is not ASCII now throws a `MailException`. Before, SES threw an `ArgumentError`, so a queued mail failed on every retry. Display names, subjects and file names can still be any text: they are encoded.
 - Note: a non-ASCII email address, like `user@münchen.de`, is refused on every transport. Write the domain in punycode instead, like `user@xn--mnchen-3ya.de`.
