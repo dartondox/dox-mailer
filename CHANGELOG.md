@@ -1,3 +1,7 @@
+## Unreleased
+
+- Faster: the HTTP transports (Resend, SES, Mailgun, Postmark, Azure) send through the native client of [dox_http_client](https://pub.dev/packages/dox_http_client). It uses HTTP/2 when the server has it. A `client` that you pass is used as before.
+
 ## 3.2.2
 
 - Fix: an email address, attachment cid or content type with a character that is not ASCII now throws a `MailException`. Before, SES threw an `ArgumentError`, so a queued mail failed on every retry. Display names, subjects and file names can still be any text: they are encoded.
