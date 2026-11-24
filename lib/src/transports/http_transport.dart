@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dox_http_client/http.dart';
 import 'package:http/http.dart' as http;
 
 import '../mail_exception.dart';
@@ -8,10 +9,11 @@ import '../transport.dart';
 /// The base of the transports that call an HTTP API.
 abstract class HttpTransport extends Transport {
   /// Pass a [client] to share one, or to test with a `MockClient`. Null:
-  /// the transport makes its own and closes it in [close].
+  /// the transport makes its own and closes it in [close]. Its own client
+  /// is the native client of `dox_http_client`.
   HttpTransport(http.Client? client)
     : _ownClient = client == null,
-      client = client ?? http.Client();
+      client = client ?? DoxHttpPackageClient();
 
   final http.Client client;
   final bool _ownClient;
