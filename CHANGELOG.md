@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.3
 
 - Faster: the HTTP transports (Resend, SES, Mailgun, Postmark, Azure) send through the native client of [dox_http_client](https://pub.dev/packages/dox_http_client). It uses HTTP/2 when the server has it. A `client` that you pass is used as before.
 
