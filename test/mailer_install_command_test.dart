@@ -91,6 +91,7 @@ void main() {
       'resend': <String>['ResendTransport(', 'RESEND_API_KEY='],
       'mailgun': <String>['MailgunTransport(', 'MAILGUN_DOMAIN='],
       'postmark': <String>['PostmarkTransport(', 'POSTMARK_TOKEN='],
+      'cloudflare': <String>['CloudflareTransport(', 'CLOUDFLARE_API_TOKEN='],
       'ses': <String>['SesV2Transport(', 'AWS_REGION=us-east-1'],
     };
     for (String transport in expected.keys) {

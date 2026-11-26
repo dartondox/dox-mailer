@@ -415,6 +415,108 @@ void main() {
     );
   });
 
+  group('Cloudflare', () {
+    test('posts JSON with a Bearer token', () async {
+      _Recorder r = _Recorder(
+        200,
+        '{"success":true,"result":{"message_id":"<cf-1@example.com>"}}',
+      );
+      CloudflareTransport cloudflare = CloudflareTransport(
+        accountId: 'acc1',
+        apiToken: 'cf_test',
+        client: r.client,
+      );
+      SentMessage sent = await cloudflare.send(_message());
+
+      expect(sent.messageId, '<cf-1@example.com>');
+      http.Request req = r.last;
+      expect(
+        req.url.toString(),
+        'https://api.cloudflare.com/client/v4/accounts/acc1/email/sending/send',
+      );
+      expect(req.headers['authorization'], 'Bearer cf_test');
+      expect(req.headers['content-type'], 'application/json');
+      expect(r.json, <String, dynamic>{
+        'from': <String, String>{
+          'address': 'app@example.com',
+          'name': 'My App',
+        },
+        'to': <Map<String, String>>[
+          <String, String>{'address': 'ann@example.com', 'name': 'Ann'},
+        ],
+        'cc': <Map<String, String>>[
+          <String, String>{'address': 'bob@example.com'},
+        ],
+        'bcc': <Map<String, String>>[
+          <String, String>{'address': 'boss@example.com'},
+        ],
+        'reply_to': <String, String>{'address': 'help@example.com'},
+        'subject': 'Welcome',
+        'text': 'Hello Ann',
+        'html': '<p>Hello Ann</p><img src="cid:logo">',
+        'headers': <String, String>{'X-Campaign': 'fall'},
+        'attachments': <Map<String, String>>[
+          <String, String>{
+            'filename': 'invoice.pdf',
+            'content': base64.encode(utf8.encode('PDF')),
+            'type': 'application/pdf',
+            'disposition': 'attachment',
+          },
+          <String, String>{
+            'filename': 'logo.png',
+            'content': 'AQID',
+            'type': 'image/png',
+            'disposition': 'inline',
+            'content_id': 'logo',
+          },
+        ],
+      });
+    });
+
+    test('stops header injection', () async {
+      _Recorder r = _Recorder(200, '{}');
+      CloudflareTransport cloudflare = CloudflareTransport(
+        accountId: 'acc1',
+        apiToken: 'cf_test',
+        client: r.client,
+      );
+      await expectLater(
+        cloudflare.send(
+          _message().copyWith(
+            to: <Address>[const Address('ann@example.com\r\nBcc: x@y.z')],
+          ),
+        ),
+        throwsA(isA<MailException>()),
+      );
+      expect(r.requests, isEmpty);
+    });
+
+    test('an error is a MailException', () async {
+      _Recorder r = _Recorder(
+        403,
+        '{"success":false,"errors":[{"code":10102,"message":'
+        '"email.sending.error.authentication.forbidden"}],"result":null}',
+      );
+      CloudflareTransport cloudflare = CloudflareTransport(
+        accountId: 'acc1',
+        apiToken: 'cf_test',
+        client: r.client,
+      );
+      await expectLater(
+        cloudflare.send(_message()),
+        throwsA(
+          isA<MailException>()
+              .having((MailException e) => e.statusCode, 'statusCode', 403)
+              .having(
+                (MailException e) => e.body,
+                'body',
+                contains('authentication.forbidden'),
+              ),
+        ),
+      );
+    });
+  });
+
   group('Mailgun', () {
     test('posts a multipart form, US region', () async {
       _Recorder r = _Recorder(

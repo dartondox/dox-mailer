@@ -1,5 +1,5 @@
 /// Send email from the Dox framework: SMTP, Amazon SES, Azure, Resend,
-/// Mailgun, Postmark and sendmail.
+/// Mailgun, Postmark, Cloudflare and sendmail.
 library;
 
 export 'src/address.dart';
@@ -20,6 +20,7 @@ export 'src/notification.dart';
 export 'src/transport.dart';
 export 'src/transports/array_transport.dart';
 export 'src/transports/azure_transport.dart';
+export 'src/transports/cloudflare_transport.dart';
 export 'src/transports/failover_transport.dart';
 export 'src/transports/http_transport.dart';
 export 'src/transports/log_transport.dart';

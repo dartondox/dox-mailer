@@ -1,6 +1,6 @@
 ---
 name: dox-mailer-guide
-description: Use when you send email in a Dox (Dart) app with dox_mailer. Covers mail config, the MailProvider, Mail.send, mailables, Markdown mail, notifications, queued mail, transports (SMTP, SES, Resend, Mailgun, Postmark, Azure, sendmail) and testing with Mail.fake.
+description: Use when you send email in a Dox (Dart) app with dox_mailer. Covers mail config, the MailProvider, Mail.send, mailables, Markdown mail, notifications, queued mail, transports (SMTP, SES, Resend, Mailgun, Postmark, Cloudflare, Azure, sendmail) and testing with Mail.fake.
 ---
 
 # dox_mailer guide
@@ -12,7 +12,7 @@ For routes, controllers and app layout, see the `dox-core-guide` skill.
 ## Set up
 
 ```bash
-dox add mailer [--transport=log|smtp|resend|mailgun|postmark|ses]
+dox add mailer [--transport=log|smtp|resend|mailgun|postmark|cloudflare|ses]
 ```
 
 It adds the package, writes `lib/config/mail.dart` and the provider, adds the `MAIL_*` keys to `.env` and runs `build_runner`. The default transport is `log`: it prints emails and sends nothing. The steps below are the same by hand.
@@ -281,6 +281,7 @@ Mail.restore();
 - `ResendTransport(apiKey:)`.
 - `MailgunTransport(apiKey:, domain:, region: MailgunRegion.eu)`.
 - `PostmarkTransport(serverToken:, messageStream:)`.
+- `CloudflareTransport(accountId:, apiToken:)`. The token needs the `Email Sending Write` permission. It sends only the first `replyTo` address and skips `tags` and `metadata`.
 - `SendmailTransport(path:, mode: SendmailMode.smtp)` or `SendmailMode.pipe`.
 - `LogTransport(bothBodies:, output:)` and `ArrayTransport()`.
 - `FailoverTransport(<Transport>[ses, smtp], onError: ...)` tries each in order and throws the last error.
