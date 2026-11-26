@@ -6,6 +6,11 @@ import 'package:http/http.dart' as http;
 import '../mail_exception.dart';
 import '../transport.dart';
 
+// UTF-8 bytes to JSON in one step, with no String of the full body
+final Converter<List<int>, Object?> _jsonDecoder = const Utf8Decoder().fuse(
+  const JsonDecoder(),
+);
+
 /// The base of the transports that call an HTTP API.
 abstract class HttpTransport extends Transport {
   /// Pass a [client] to share one, or to test with a `MockClient`. Null:
@@ -61,7 +66,7 @@ abstract class HttpTransport extends Transport {
   /// The JSON object of [response], or an empty map.
   static Map<String, dynamic> json(http.Response response) {
     try {
-      Object? data = jsonDecode(response.body);
+      Object? data = _jsonDecoder.convert(response.bodyBytes);
       if (data is Map<String, dynamic>) return data;
     } on FormatException {
       // not JSON: no id

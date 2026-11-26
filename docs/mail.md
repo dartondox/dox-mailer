@@ -631,6 +631,19 @@ Requests are signed with the access key (HMAC-SHA256). Inline images need a newe
 
 `messageStream` is optional. Without it, Postmark uses the default stream of the server.
 
+### Cloudflare
+
+Sends with the Cloudflare Email Service API.
+
+```dart
+'cloudflare': CloudflareTransport(
+  accountId: Env.get('CLOUDFLARE_ACCOUNT_ID'),
+  apiToken: Env.get('CLOUDFLARE_API_TOKEN'),
+),
+```
+
+The API token needs the `Email Sending Write` permission. Cloudflare takes one reply-to address, so the transport sends the first address of `replyTo`.
+
 ### sendmail
 
 Sends with the `sendmail` program of the server (Postfix, Exim, msmtp and others).
@@ -699,7 +712,7 @@ Each provider has its own way to group and mark emails. This is what each transp
 | Resend | tags with the value `true` | tags |
 | Mailgun | `o:tag` | variables (`v:name`) |
 | Postmark | the first tag | metadata |
-| Azure, SMTP, sendmail | not used | not used |
+| Azure, Cloudflare, SMTP, sendmail | not used | not used |
 
 For SMTP and sendmail, use `headers` instead.
 

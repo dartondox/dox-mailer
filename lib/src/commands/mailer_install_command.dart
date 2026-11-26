@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dox_annotation/command.dart';
 import 'package:dox_annotation/install.dart';
 
-/// `dox mailer:install [--transport=log|smtp|resend|mailgun|postmark|ses]`.
+/// `dox mailer:install [--transport=log|smtp|resend|mailgun|postmark|cloudflare|ses]`.
 /// `dox add mailer` runs it. It sets up mail in an app: the mail config,
 /// the provider, the `MAIL_*` keys of the transport, and a
 /// `resources/views/emails` folder when the app uses dox_view.
@@ -22,6 +22,7 @@ class MailerInstallCommand extends Command {
     'resend',
     'mailgun',
     'postmark',
+    'cloudflare',
     'ses',
   ];
 
@@ -33,7 +34,7 @@ class MailerInstallCommand extends Command {
 
   @override
   String get usage =>
-      'mailer:install [--transport=log|smtp|resend|mailgun|postmark|ses]';
+      'mailer:install [--transport=log|smtp|resend|mailgun|postmark|cloudflare|ses]';
 
   @override
   Future<void> run(List<String> args) async {
@@ -41,7 +42,7 @@ class MailerInstallCommand extends Command {
     if (transport == null) {
       print(
         'Unknown option. Use --transport=log, smtp, resend, mailgun, '
-        'postmark or ses (log when not given).',
+        'postmark, cloudflare or ses (log when not given).',
       );
       exitCode = 1;
       return;
@@ -135,6 +136,10 @@ class MailerInstallCommand extends Command {
           'MAILGUN_DOMAIN': '',
         },
         'postmark' => <String, String>{'POSTMARK_TOKEN': ''},
+        'cloudflare' => <String, String>{
+          'CLOUDFLARE_ACCOUNT_ID': '',
+          'CLOUDFLARE_API_TOKEN': '',
+        },
         'ses' => <String, String>{
           'AWS_ACCESS_KEY_ID': '',
           'AWS_SECRET_ACCESS_KEY': '',
@@ -171,6 +176,13 @@ class MailerInstallCommand extends Command {
       'postmark' =>
         '''
     'postmark': PostmarkTransport(serverToken: Env.get('POSTMARK_TOKEN', '')),
+''',
+      'cloudflare' =>
+        '''
+    'cloudflare': CloudflareTransport(
+      accountId: Env.get('CLOUDFLARE_ACCOUNT_ID', ''),
+      apiToken: Env.get('CLOUDFLARE_API_TOKEN', ''),
+    ),
 ''',
       'ses' =>
         '''

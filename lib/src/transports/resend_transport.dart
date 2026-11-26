@@ -67,7 +67,7 @@ class ResendTransport extends HttpTransport {
         'authorization': 'Bearer $apiKey',
         'content-type': 'application/json',
       },
-      body: jsonEncode(data),
+      body: JsonUtf8Encoder().convert(data),
     );
     Object? id = HttpTransport.json(response)['id'];
     return SentMessage(message, messageId: id?.toString());
