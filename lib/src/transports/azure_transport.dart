@@ -117,7 +117,7 @@ class AzureTransport extends HttpTransport {
             .toList(),
       if (disableTracking) 'userEngagementTrackingDisabled': true,
     };
-    List<int> body = utf8.encode(jsonEncode(data));
+    List<int> body = JsonUtf8Encoder().convert(data);
     String base = endpoint.toString().replaceAll(RegExp(r'/+$'), '');
     Uri uri = Uri.parse('$base/emails:send?api-version=$apiVersion');
     http.Response response = await post(

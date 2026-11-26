@@ -80,7 +80,7 @@ class CloudflareTransport extends HttpTransport {
         'authorization': 'Bearer $apiToken',
         'content-type': 'application/json',
       },
-      body: jsonEncode(data),
+      body: JsonUtf8Encoder().convert(data),
     );
     Object? result = HttpTransport.json(response)['result'];
     Object? id = result is Map<String, dynamic> ? result['message_id'] : null;

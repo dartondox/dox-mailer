@@ -82,7 +82,7 @@ class PostmarkTransport extends HttpTransport {
         'content-type': 'application/json',
         'x-postmark-server-token': serverToken,
       },
-      body: jsonEncode(data),
+      body: JsonUtf8Encoder().convert(data),
     );
     Object? id = HttpTransport.json(response)['MessageID'];
     return SentMessage(message, messageId: id?.toString());

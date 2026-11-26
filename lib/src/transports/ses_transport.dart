@@ -66,9 +66,10 @@ class SesTransport extends HttpTransport {
     service: 'ses',
   );
 
-  /// POSTs a signed request and gives the response
-  Future<http.Response> signedPost(Uri uri, String contentType, String body) {
-    List<int> bytes = utf8.encode(body);
+  /// POSTs a signed request and gives the response. [body] is a String
+  /// or bytes.
+  Future<http.Response> signedPost(Uri uri, String contentType, Object body) {
+    List<int> bytes = body is String ? utf8.encode(body) : body as List<int>;
     Map<String, String> headers = signer.sign(
       method: 'POST',
       uri: uri,
@@ -164,7 +165,7 @@ class SesV2Transport extends SesTransport {
     http.Response response = await signedPost(
       endpoint.resolve('/v2/email/outbound-emails'),
       'application/json',
-      jsonEncode(data),
+      JsonUtf8Encoder().convert(data),
     );
     Object? id = HttpTransport.json(response)['MessageId'];
     return SentMessage(message, messageId: id?.toString(), raw: raw.text);
