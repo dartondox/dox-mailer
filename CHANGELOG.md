@@ -1,4 +1,4 @@
-## Unreleased
+## 3.2.4
 
 - New: `CloudflareTransport(accountId:, apiToken:)` sends with the Cloudflare Email Service API. `dox mailer:install --transport=cloudflare` sets it up and adds the `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` keys.
 - Faster: the HTTP transports read and write JSON as bytes. They do not make a String of the full body.
