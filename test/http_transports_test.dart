@@ -515,6 +515,58 @@ void main() {
         ),
       );
     });
+
+    test('a 2xx answer with success false is a MailException', () async {
+      _Recorder r = _Recorder(
+        200,
+        '{"success":false,"errors":[{"code":10202,"message":"invalid"}]}',
+      );
+      CloudflareTransport cloudflare = CloudflareTransport(
+        accountId: 'acc1',
+        apiToken: 'cf_test',
+        client: r.client,
+      );
+      await expectLater(
+        cloudflare.send(_message()),
+        throwsA(isA<MailException>()),
+      );
+    });
+
+    test('no from, and a name that is empty or not given', () async {
+      _Recorder r = _Recorder(200, 'not JSON');
+      CloudflareTransport cloudflare = CloudflareTransport(
+        accountId: 'acc1',
+        apiToken: 'cf_test',
+        client: r.client,
+      );
+      SentMessage sent = await cloudflare.send(
+        Message(
+          to: <Address>[const Address('ann@example.com', '')],
+          subject: 'Hi',
+          text: 'Zoë',
+        ),
+      );
+      expect(sent.messageId, isNull);
+      expect(jsonDecode(utf8.decode(r.last.bodyBytes)), <String, dynamic>{
+        'to': <Map<String, String>>[
+          <String, String>{'address': 'ann@example.com'},
+        ],
+        'subject': 'Hi',
+        'text': 'Zoë',
+      });
+    });
+  });
+
+  test('HttpTransport.json reads UTF-8, and gives {} for a bad body', () {
+    http.Response bytes(List<int> body) => http.Response.bytes(body, 200);
+    expect(
+      HttpTransport.json(bytes(utf8.encode('{"id":"Zoë 日"}'))),
+      <String, dynamic>{'id': 'Zoë 日'},
+    );
+    expect(HttpTransport.json(bytes(<int>[])), isEmpty);
+    expect(HttpTransport.json(bytes(utf8.encode('<html>'))), isEmpty);
+    expect(HttpTransport.json(bytes(utf8.encode('[1]'))), isEmpty);
+    expect(HttpTransport.json(bytes(<int>[0x7B, 0xFF, 0x7D])), isEmpty);
   });
 
   group('Mailgun', () {

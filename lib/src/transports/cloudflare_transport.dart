@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../address.dart';
 import '../attachment.dart';
 import '../header_check.dart';
+import '../mail_exception.dart';
 import '../message.dart';
 import 'http_transport.dart';
 
@@ -47,7 +48,7 @@ class CloudflareTransport extends HttpTransport {
     checkHeaders(message);
     Map<String, String> address(Address a) => <String, String>{
       'address': a.email,
-      'name': ?a.name,
+      if (a.name?.isNotEmpty ?? false) 'name': a.name!,
     };
     List<Map<String, String>> list(List<Address> a) => a.map(address).toList();
     Map<String, Object> data = <String, Object>{
@@ -82,7 +83,16 @@ class CloudflareTransport extends HttpTransport {
       },
       body: JsonUtf8Encoder().convert(data),
     );
-    Object? result = HttpTransport.json(response)['result'];
+    Map<String, dynamic> json = HttpTransport.json(response);
+    // Cloudflare can give a 2xx answer that says the send failed
+    if (json['success'] == false) {
+      throw MailException(
+        '$provider: ${response.statusCode} ${response.body}',
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+    Object? result = json['result'];
     Object? id = result is Map<String, dynamic> ? result['message_id'] : null;
     return SentMessage(message, messageId: id?.toString());
   }
